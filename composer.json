@@ -11,7 +11,7 @@
         "laravel/sanctum": "^4.3",
         "laravel/socialite": "^5.25",
         "laravel/tinker": "^2.10.1",
-        "sepay/sepay-pg": "*",
+        "sepay/sepay-pg": "^1.0",
         "tymon/jwt-auth": "^2.3"
     },
     "require-dev": {
