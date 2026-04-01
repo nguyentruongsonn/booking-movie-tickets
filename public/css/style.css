@@ -1,4 +1,4 @@
-/*!
+﻿/*!
  * Bootstrap v4.5.0 (https://getbootstrap.com/)
  * Copyright 2011-2020 The Bootstrap Authors
  * Copyright 2011-2020 Twitter, Inc.
@@ -3131,6 +3131,9 @@ fieldset:disabled a.btn {
   color: #fff;
   background-color: #007bff;
   border-color: #007bff;
+  border-radius:50rem;
+  padding-left: 20px;
+  padding-right: 20px;
 }
 
 .btn-primary:hover {
@@ -3170,17 +3173,6 @@ fieldset:disabled a.btn {
   box-shadow: 0 0 0 0.2rem rgba(38, 143, 255, 0.5);
 }
 
-.btn-secondary {
-  color: #fff;
-  background-color: #6c757d;
-  border-color: #6c757d;
-}
-
-.btn-secondary:hover {
-  color: #fff;
-  background-color: #5a6268;
-  border-color: #545b62;
-}
 
 .btn-secondary:focus,
 .btn-secondary.focus {
@@ -3298,7 +3290,11 @@ fieldset:disabled a.btn {
   -webkit-box-shadow: 0 0 0 0.2rem rgba(58, 176, 195, 0.5);
   box-shadow: 0 0 0 0.2rem rgba(58, 176, 195, 0.5);
 }
-
+.btn-secondary:hover{
+    color: #fff;
+    background-color: #6c757d !important;
+    border-color: #6c757d;
+}
 .btn-warning {
   color: #212529;
   background-color: #ffc107;
@@ -12113,7 +12109,7 @@ h5,
 
 @media (max-width: 991.98px) {
   .ftco-navbar-light {
-    background: #000000 !important;
+    background: red !important;
     position: relative;
     top: 0;
     padding-top: 0;
@@ -12123,20 +12119,20 @@ h5,
 #movie-banner {
     position: relative;
     width: 100%;
-    height: 450px; /* Hoặc độ cao bạn muốn */
-    background-size: cover;      /* Ảnh phủ kín khung */
-    background-position: center; /* Căn giữa ảnh */
+    height: 450px; /* Hoáº·c Ä‘á»™ cao báº¡n muá»‘n */
+    background-size: cover;      /* áº¢nh phá»§ kÃ­n khung */
+    background-position: center; /* CÄƒn giá»¯a áº£nh */
     background-repeat: no-repeat;
-    margin-top: 0;               /* Đảm bảo không có margin lạ */
-    overflow: hidden;            /* Cắt bỏ phần ảnh thừa ra ngoài khung */
+    margin-top: 0;               /* Äáº£m báº£o khÃ´ng cÃ³ margin láº¡ */
+    overflow: hidden;            /* Cáº¯t bá» pháº§n áº£nh thá»«a ra ngoÃ i khung */
 }
 
-/* Thêm lớp phủ mờ (Overlay) nếu muốn chữ trên banner dễ đọc hơn */
+/* ThÃªm lá»›p phá»§ má» (Overlay) náº¿u muá»‘n chá»¯ trÃªn banner dá»… Ä‘á»c hÆ¡n */
 #movie-banner::before {
     content: "";
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.6); /* Lớp phủ đen mờ 60% */
+    background: rgba(0, 0, 0, 0.6); /* Lá»›p phá»§ Ä‘en má» 60% */
 }
 
 .ftco-navbar-light .container {
@@ -12172,8 +12168,6 @@ h5,
 
 .ftco-navbar-light .navbar-nav>.nav-item>.nav-link {
   font-size: 15px;
-  padding-top: 1.5rem;
-  padding-bottom: 1.5rem;
   padding-left: 20px;
   padding-right: 20px;
   color: #fff;
@@ -12431,7 +12425,7 @@ h5,
 .slider-text .subheading {
   font-size: 30px;
   color: #f15d30;
-  font-family: "Arizonia", cursive;
+  font-family: sans-serif;
 }
 
 .slider-text h1 {
@@ -12779,6 +12773,12 @@ h5,
   background: #f15d30 !important;
   border: 1px solid #f15d30 !important;
   color: #fff !important;
+  border-radius: 50rem !important;
+}
+#btn-back,
+#btn-continue{
+    border-radius:50rem;
+    border: 0px ;
 }
 
 .btn-outline-primary {
@@ -12802,7 +12802,7 @@ h5,
   box-shadow: 0 0 0 0.25rem rgba(241, 93, 48, 0.5) !important;
 }
 
-/* Active (khi nhấn) */
+/* Active (khi nháº¥n) */
 .btn-outline-primary:active,
 .btn-outline-primary.active {
   color: #fff !important;
@@ -14579,13 +14579,17 @@ textarea.form-control {
   }
 }
 
+/* App Customizations
+-------------------------------------------------- */
+
+/* Navigation / account */
 .btn-login-nav {
   background: linear-gradient(135deg, #e84393, #f96d00) !important;
   color: #fff !important;
   border-radius: 20px !important;
+  box-shadow: 0 3px 12px rgba(232, 67, 147, 0.3);
   font-weight: 600 !important;
   transition: all 0.3s ease;
-  box-shadow: 0 3px 12px rgba(232, 67, 147, 0.3);
 }
 
 .btn-login-nav:hover {
@@ -14595,17 +14599,17 @@ textarea.form-control {
 }
 
 .user-dropdown-menu {
+  min-width: 180px;
   background: #1a1a2e;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-  min-width: 180px;
 }
 
 .user-dropdown-menu .dropdown-item {
+  padding: 8px 16px;
   color: rgba(255, 255, 255, 0.8);
   font-size: 13px;
-  padding: 8px 16px;
   transition: background 0.2s;
 }
 
@@ -14618,38 +14622,34 @@ textarea.form-control {
   border-color: rgba(255, 255, 255, 0.1);
 }
 
+/* Trailer button */
 .video-play-button {
   position: relative;
+  z-index: 999 !important;
   display: inline-block;
   width: 90px;
   height: 90px;
-  z-index: 999 !important;
   background: rgba(235, 7, 7, 0.1);
   border-radius: 50%;
   transition: all 0.3s;
 }
 
-
 .video-play-button span {
   position: absolute;
   top: 50%;
   left: 55%;
-  transform: translate(-50%, -50%);
-  font-size: 30px;
-  color: #fff;
   z-index: 10;
+  color: #fff;
+  font-size: 30px;
+  transform: translate(-50%, -50%);
 }
 
-/* Hiệu ứng sóng lan tỏa (Pulse) */
-.video-play-button::after,
-.video-play-button::before {
+.video-play-button::before,
+.video-play-button::after {
   content: "";
   position: absolute;
+  inset: -20px;
   border: 2px solid #fff;
-  left: -20px;
-  right: -20px;
-  top: -20px;
-  bottom: -20px;
   border-radius: 50%;
   opacity: 0;
   animation: pulse 2s linear infinite;
@@ -14657,6 +14657,11 @@ textarea.form-control {
 
 .video-play-button::after {
   animation-delay: 1s;
+}
+
+.video-play-button:hover {
+  background: #f1592a;
+  transform: scale(1.1);
 }
 
 @keyframes pulse {
@@ -14675,8 +14680,462 @@ textarea.form-control {
   }
 }
 
+/* Movie booking home */
+.movie-hero .overlay {
+  background: linear-gradient(90deg, rgba(19, 18, 29, 0.92) 0%, rgba(19, 18, 29, 0.72) 45%, rgba(241, 93, 48, 0.45) 100%);
+}
 
-.video-play-button:hover {
-  background: #f1592a;
-  transform: scale(1.1);
+.movie-hero .hero-panel {
+  padding: 34px 32px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 24px;
+  backdrop-filter: blur(10px);
+}
+
+.movie-hero .hero-panel .stat-number {
+  display: block;
+  color: #fff;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.movie-hero .hero-panel .stat-label {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.movie-hero-slider .slider-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.movie-hero-slider .owl-stage,
+.movie-hero-slider .owl-item,
+.movie-hero-slider .owl-stage-outer {
+  height: 100%;
+}
+
+.movie-hero-slider .slide-play-btn {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 110px;
+  height: 110px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border: 0;
+  border-radius: 50%;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(10px);
+  transition: transform .25s ease, background .25s ease;
+}
+
+.movie-hero-slider .slide-play-btn i {
+  position: relative;
+  z-index: 2;
+  margin-left: 6px;
+  font-size: 34px;
+}
+
+.movie-hero-slider .slide-play-btn::before,
+.movie-hero-slider .slide-play-btn::after {
+  content: "";
+  position: absolute;
+  inset: -14px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  animation: moviePulse 2.4s linear infinite;
+}
+
+.movie-hero-slider .slide-play-btn::after {
+  animation-delay: 1.2s;
+}
+
+.movie-hero-slider .slide-play-btn:hover {
+  background: #f15d30;
+  transform: scale(1.08);
+}
+
+.movie-hero-slider .owl-nav {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.movie-hero-slider .owl-nav button {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  color: #fff !important;
+  font-size: 26px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-radius: 50%;
+  pointer-events: auto;
+  transition: all .25s ease;
+}
+
+.movie-hero-slider .owl-nav .owl-prev {
+  left: 28px;
+}
+
+.movie-hero-slider .owl-nav .owl-next {
+  right: 28px;
+}
+
+.movie-hero-slider .owl-nav button:hover {
+  background: #f15d30 !important;
+  border-color: #f15d30 !important;
+}
+
+.movie-hero-slider .owl-dots {
+  position: absolute;
+  right: 0;
+  bottom: 5%;
+  left: 0;
+  text-align: center;
+}
+
+.movie-hero-slider .owl-dots .owl-dot span {
+  width: 12px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.movie-hero-slider .owl-dots .owl-dot.active span {
+  background: #f15d30;
+}
+
+.movie-trailer-modal .modal-content {
+  overflow: hidden;
+  background: #070709;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+}
+
+.movie-trailer-modal .modal-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.movie-trailer-modal .close {
+  color: #fff;
+  opacity: 1;
+  text-shadow: none;
+}
+
+.movie-trailer-modal .modal-title {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.movie-trailer-modal .modal-body {
+  padding: 0;
+  background: #000;
+}
+
+@keyframes moviePulse {
+  0% {
+    transform: scale(.86);
+    opacity: 0;
+  }
+
+  45% {
+    opacity: .9;
+  }
+
+  100% {
+    transform: scale(1.18);
+    opacity: 0;
+  }
+}
+
+.booking-search-shell {
+  position: relative;
+  z-index: 4;
+  margin-top: -90px;
+}
+
+.booking-search-card {
+  overflow: hidden;
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 30px 80px rgba(20, 17, 39, 0.14);
+}
+
+.booking-search-card .nav-pills .nav-link {
+  margin-right: 10px;
+  padding: 12px 24px;
+  color: #2f2a3a;
+  background: #f7f4f1;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.booking-search-card .nav-pills .nav-link.active {
+  color: #fff;
+  background: #f15d30;
+  box-shadow: 0 10px 24px rgba(241, 93, 48, 0.28);
+}
+
+.booking-search-card .search-property-1 .form-group {
+  min-height: 100%;
+}
+
+.movie-feature-card {
+  height: 100%;
+  padding: 30px 26px;
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.06);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+
+.movie-feature-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 28px 50px rgba(0, 0, 0, 0.1);
+}
+
+.movie-feature-card .icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  margin-bottom: 18px;
+  color: #fff;
+  font-size: 28px;
+  border-radius: 22px;
+}
+
+.movie-feature-card.feature-1 .icon {
+  background: linear-gradient(135deg, #f15d30, #ffb347);
+}
+
+.movie-feature-card.feature-2 .icon {
+  background: linear-gradient(135deg, #1b9aaa, #56dfcf);
+}
+
+.movie-feature-card.feature-3 .icon {
+  background: linear-gradient(135deg, #3a0ca3, #f72585);
+}
+
+.movie-filter-bar {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 34px;
+}
+
+.movie-filter-pill {
+  min-width: 180px;
+  padding: 14px 24px;
+  color: #2d2738;
+  background: #fff;
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 16px 38px rgba(20, 17, 39, 0.08);
+  font-weight: 700;
+  transition: all .25s ease;
+}
+
+.movie-filter-pill:hover,
+.movie-filter-pill.active {
+  color: #fff;
+  background: #f15d30;
+  box-shadow: 0 20px 40px rgba(241, 93, 48, 0.28);
+}
+
+.movie-catalog-section {
+  background: linear-gradient(180deg, #fff8f4 0%, #ffffff 100%);
+}
+
+.movie-empty-state {
+  padding: 60px 20px;
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(20, 17, 39, 0.08);
+}
+
+.movie-info-band {
+  overflow: hidden;
+  background: linear-gradient(135deg, #1b1825 0%, #342b4f 100%);
+  border-radius: 28px;
+}
+
+.movie-info-band .info-copy {
+  padding: 48px;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.movie-info-band h3 {
+  color: #fff;
+  font-size: 34px;
+  font-weight: 700;
+}
+
+.movie-info-band .info-point {
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+  font-size: 15px;
+}
+
+.movie-info-band .info-point span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin-right: 14px;
+  color: #ffb38f;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+}
+
+.movie-info-band .info-visual {
+  min-height: 100%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)), url('images/bg_3.jpg') center/cover no-repeat;
+}
+
+/* Booking page */
+body .ftco-navbar-light,
+body .ftco-navbar-light.scrolled,
+body .ftco-navbar-light.awake {
+  position: relative !important;
+  top: 0 !important;
+  margin-top: 0 !important;
+  background: #1a1a1a !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  transition: none !important;
+}
+
+body .ftco-navbar-light .navbar-brand,
+body .ftco-navbar-light .nav-link {
+  color: #ffffff !important;
+}
+
+body .ftco-navbar-light .nav-item.cta > a {
+  background: #f15d30 !important;
+  border: none !important;
+}
+
+#seat-map {
+  display: flex;
+  flex-direction: column;
+}
+
+.seat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  user-select: none;
+}
+
+.seat.available:hover {
+  color: #f15d30;
+  border-color: #f15d30;
+}
+
+.seat.booked {
+  color: #721c24;
+  background-color: #f8d7da;
+  border: none;
+  cursor: not-allowed;
+}
+
+.seat.booked::after {
+  content: '💰';
+  position: absolute;
+  margin-top: 15px;
+  font-size: 8px;
+}
+
+.seat.selected {
+  color: #fff;
+  background-color: #f15d30;
+  border-color: #f15d30;
+}
+
+.row-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  color: #888;
+}
+
+.list-inline-item {
+  margin: 0 20px;
+  cursor: pointer;
+}
+
+.list-inline-item.active {
+  color: #f15d30;
+  border-bottom: 2px solid #f15d30;
+}
+
+@media (max-width: 991.98px) {
+  .booking-search-shell {
+    margin-top: -40px;
+  }
+
+  .movie-hero .hero-panel {
+    margin-top: 30px;
+  }
+
+  .movie-hero-slider .slider-item {
+    min-height: 72vh;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .movie-hero h1 {
+    font-size: 36px;
+  }
+
+  .movie-info-band .info-copy {
+    padding: 32px 24px;
+  }
+
+  .movie-filter-pill {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .movie-hero-slider .slide-play-btn {
+    width: 88px;
+    height: 88px;
+  }
+
+  .movie-hero-slider .owl-nav .owl-prev {
+    left: 14px;
+  }
+
+  .movie-hero-slider .owl-nav .owl-next {
+    right: 14px;
+  }
 }

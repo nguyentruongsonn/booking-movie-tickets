@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class HoaDon extends Model
 {
     protected $table = 'hoa_don';
-    
+
     protected $fillable = [
         'ma_hoa_don',
         'khach_hang_id',
@@ -23,7 +23,7 @@ class HoaDon extends Model
         'phuong_thuc_thanh_toan',
         'trang_thai',
     ];
-    
+
     protected $casts = [
         'ngay_lap' => 'datetime',
         'tong_tien_goc' => 'float',
@@ -32,27 +32,27 @@ class HoaDon extends Model
         'diem_su_dung' => 'integer',
         'diem_tich_luy' => 'integer',
     ];
-    
+
     public function customer()
     {
         return $this->belongsTo(Customers::class, 'khach_hang_id');
     }
-    
+
     public function employee()
     {
         return $this->belongsTo(Employees::class, 'nhan_vien_id');
     }
-    
+
     public function promotion()
     {
         return $this->belongsTo(Promotions::class, 'khuyen_mai_id');
     }
-    
+
     public function invoiceDetails()
     {
         return $this->hasMany(InvoiceDetails::class, 'hoa_don_id');
     }
-    
+
     public function tickets()
     {
         return $this->hasMany(Tickets::class, 'hoa_don_id');

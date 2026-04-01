@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<section class="hero-wrap hero-wrap-2" id="movie-banner" style="min-height: 600px; position: relative; background-size: cover; background-position: center;">
+<section class="hero-wrap hero-wrap-2" id="movie-banner" >
     <div class="overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5);"></div>
     <div class="container-fluid">
         <div class="row no-gutters slider-text align-items-center justify-content-center" style="min-height: 600px;">
@@ -20,7 +20,7 @@
 </section>
 
 <section class="ftco-section bg-light">
-    <div class="container-fluid">
+    <div class="container">
         <div class="row">
             <div class="col-md-9">
                 <div class="row">
@@ -34,10 +34,10 @@
                         <hr>
                         <p><strong class="text-primary">Thể loại:</strong> <span id="det-categories"></span></p>
                         <p><strong class="text-primary">Đạo diễn:</strong> <span id="det-director"></span></p>
-                        <p><strong class="text-primary">Diễn viên:</strong> <span id="det-actors"></span></p>             
+                        <p><strong class="text-primary">Diễn viên:</strong> <span id="det-actors"></span></p>
                         <p><strong class="text-primary">Thời lượng:</strong> <span id="det-duration"></span></p>
                         <p><strong class="text-primary">Ngày khởi chiếu:</strong> <span id="det-start-date"></span></p>
-                        
+
                     </div>
                 </div>
                 <div class="mt-4">
@@ -45,7 +45,7 @@
                     <hr>
                     <p id="det-desc" class="text-justify " style="line-height: 1.8;"></p>
                 </div>
-                
+
                 <div class="mt-5" id="booking-section">
                     <h4 class="text-primary ">Lịch chiếu</h4>
                     <hr>
@@ -59,7 +59,7 @@
                 </div>
 
                 <div id="showtime-container"></div>
-                    
+
                 </div>
             </div>
             <div class="col-md-3">

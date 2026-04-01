@@ -11,6 +11,7 @@ class Tickets extends Model
         'suat_chieu_id',
         'ghe_id',
         'khach_hang_id',
+        'ma_don_hang',
         'hoa_don_id',
         'gia_goc',
         'gia_ban',
@@ -37,6 +38,9 @@ class Tickets extends Model
     {
         return $this->hasOne(Invoices::class, 'ticket_id');
     }
-
+    public function order()
+    {
+        return $this->hasOne(Orders::class, 'ma_don_hang');
+    }
 
 }

@@ -1,88 +1,14 @@
 @extends('layouts.app')
 
 @section('content')
-@push('styles')
-<style>
-    body .ftco-navbar-light, 
-    body .ftco-navbar-light.scrolled, 
-    body .ftco-navbar-light.awake {
-        background: #1a1a1a !important;
-        position: relative !important;
-        top: 0 !important;
-        margin-top: 0 !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
-        transition: none !important;
-    }
-
-    body .ftco-navbar-light .navbar-brand, 
-    body .ftco-navbar-light .nav-link {
-        color: #ffffff !important;
-    }
-
-    body .ftco-navbar-light .nav-item.cta > a {
-        background: #f15d30 !important; 
-        border: none !important;
-    }
-
-    #seat-map {
-        display: flex;
-        flex-direction: column; /* Xếp hàng từ trên xuống */
-    }
-    .seat {
-        width: 32px;
-        height: 32px;
-        font-size: 12px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        user-select: none;
-        background-color: #fff;
-    }
-    .seat.available:hover { border-color: #f15d30; color: #f15d30; }
-    .seat.booked { 
-        background-color: #f8d7da; /* Màu đỏ nhạt giống ảnh */
-        color: #721c24; 
-        cursor: not-allowed; 
-        border: none;
-    }
-    /* Thêm icon ví cho ghế đã đặt nếu muốn giống 100% */
-    .seat.booked::after {
-        content: '💰'; /* Hoặc dùng icon font-awesome */
-        font-size: 8px;
-        position: absolute;
-        margin-top: 15px;
-    }
-    .seat.selected { background-color: #f15d30; color: white; border-color: #f15d30; }
-    
-    .row-label {
-        width: 30px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #888;
-    }
-    .list-inline-item{
-        cursor: pointer;
-        margin:0 20px 0 20px;
-    }
-    .list-inline-item.active{
-        color: #f15d30;
-        border-bottom: 2px solid #f15d30;
-    }
-
-</style>
-@endpush
 <div class="container-fluid bg-light py-4">
-    <div class="container-fluid">
+    <div class="container">
         <div class="row mb-4">
             <div class="col-12 text-center">
                 <ul class="list-inline d-flex justify-content-center gap-4 text-muted small fw-bold">
                     <li class="list-inline-item active" id="choose-seat">Chọn ghế</li>
                     <li class="list-inline-item" id="choose-product">Chọn thức ăn</li>
-                    <li class="list-inline-item" id="choose-payment">Thanh toán</li>
+                    <li class="list-inline-item" id="choose-promotion">Khuyến mãi</li>
                     <li class="list-inline-item" id="choose-confirm">Xác nhận</li>
                 </ul>
             </div>
@@ -104,7 +30,7 @@
 
                     <div id="seat-map" class="mx-auto" style="width:100%;">
                     </div>
-                    
+
                     <div class="d-flex justify-content-center mt-5 gap-4 small" >
                         <div><span class="d-inline-block bg-secondary rounded" style="width:15px; height:15px;"></span> Ghế đã bán</div>
                         <div><span class="d-inline-block border rounded" style="width:15px; height:15px;"></span> Ghế trống</div>
@@ -121,6 +47,41 @@
                     </div>
                     <div class = "selected-products-list small mt-3" id = "selected-products-list">
 
+                    </div>
+                </div>
+
+                <div class="card shadow-sm p-4 border-0 mb-4" id="card-promotion" style="border-radius:15px;">
+                    <div class="mb-4">
+                        <span class="fw-bold">Khuyến mãi</span>
+                    </div>
+
+                    <div id="promotion-map" class="mx-auto w-100">
+                        <div class="col-md-12">
+
+                            <!-- Mã giảm giá -->
+                            <div class="mb-3">
+                                <label for="coupon-code-input" class="form-label">Mã giảm giá</label>
+                                <input type="text" id="coupon-code-input" class="form-control" placeholder="Nhập mã giảm giá">
+                                <button class="btn btn-primary rounded-3 text-white mt-2" type="button" id="btn-apply-coupon">
+                                    Áp dụng
+                                </button>
+                            </div>
+
+                            <!-- Danh sách khuyến mãi -->
+                            <div id="user-promotions" class="d-flex flex-column gap-2 mt-2 mb-3"></div>
+
+                            <!-- Điểm -->
+                            <div class="mb-3">
+                                <label for="points-start" class="form-label">Áp dụng điểm</label>
+                                <input type="text" id="points-start" class="form-control" placeholder="Nhập số điểm muốn sử dụng">
+                                <button class="btn btn-primary rounded-4 text-white mt-2" type="button" id="btn-apply-points">
+                                    Áp dụng
+                                </button>
+                            </div>
+
+                            <div id="coupon-message" class="small"></div>
+
+                        </div>
                     </div>
                 </div>
             </div>
@@ -149,13 +110,13 @@
                         </div>
                         <div class="row mt-4">
                             <div class="col-6">
-                                <button class="btn btn-outline-secondary w-100 py-2 fw-bold" onclick="history.back()">Quay lại</button>
+                                <button class="btn btn-secondary w-100 py-2 fw-bold shadow-sm" id="btn-back" ">Quay lại</button>
                             </div>
                             <div class="col-6">
                                 <button class="btn btn-warning text-white w-100 py-2 fw-bold shadow-sm" id = "btn-continue">Tiếp tục</button>
                             </div>
                             <div class="small" id = "selected-products-sidebar">
-    
+
                             </div>
                         </div>
                     </div>

@@ -18,9 +18,10 @@ return new class extends Migration
             $table->foreignId('ghe_id')->constrained('seats');
             $table->foreignId('khach_hang_id')->constrained('customers');
             $table->foreignId('hoa_don_id')->constrained('invoices');
+            $table->foreignId('ma_don_hang')->constrained('orders');
             $table->decimal('gia_goc',10,2);
             $table->decimal('gia_ban',10,2);
-            $table->enum('trang_thai',['cho_xac_nhan','da_xac_nhan','da_huy','da_su_dung'])->default('da_xac_nhan');
+            $table->enum('trang_thai',['pending','paid','cancelled','used'])->default('pending');
             $table->dateTime('ngay_gio_dat')->useCurrent();
             $table->unique(['ngay_gio_dat', 'ghe_id']);//Không bán 2 lần cùng 1 ghế trong cùng 1 thời điểm
             $table->timestamps();

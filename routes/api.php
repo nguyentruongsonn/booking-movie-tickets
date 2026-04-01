@@ -2,9 +2,9 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\User\MoviesController;
 use App\Http\Controllers\Auth\AuthController;
-// Route::apiResource('customers', CustomersController::class);
-// Route::apiResource('invoicedetails', InvoiceDetailsController::class);
 use App\Http\Controllers\User\BookingApiController;
+use App\Http\Controllers\User\PaymentController;
+
 
 
 
@@ -26,7 +26,8 @@ Route::prefix('auth')->group(function () {
         }
         );    });
 
-
+Route::post('/payment/create',[PaymentController::class,'createPayment']);
+Route::post('/payment/webhook',[PaymentController::class,'handleWebhook']);
 
 Route::get('/showtime-info/{showtimeID}', [BookingApiController::class , 'getShowtimeInfo']);
 Route::post('/hold-seat', [BookingApiController::class , 'holdSeat']);

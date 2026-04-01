@@ -3,13 +3,12 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 
 class HomeController extends Controller
 {
     public function index()
     {
-        return view('user.home');
+        return view('user.booking.home');
     }
     public function about()
     {
@@ -23,10 +22,7 @@ class HomeController extends Controller
     {
         return view('user.blog');
     }
-    public function booking()
-    {
-        return view('user.booking.index');
-    }
+
     public function detail($slug)
     {
         return view('user.booking.detail', compact('slug'));
