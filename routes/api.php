@@ -1,34 +1,36 @@
 <?php
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\User\MoviesController;
+
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\User\BookingApiController;
+use App\Http\Controllers\User\MoviesController;
 use App\Http\Controllers\User\PaymentController;
+use Illuminate\Support\Facades\Route;
 
-
-
-
-Route::get('/movie/all', [MoviesController::class , 'allMovies']);
-Route::get('/movie/dang-chieu', [MoviesController::class , 'dangChieu']);
-Route::get('/movie/sap-chieu', [MoviesController::class , 'sapChieu']);
-Route::get('/movie/{slug}', [MoviesController::class , 'show']);
-
-
-
+Route::prefix('movies')->group(function () {
+    Route::get('/', [MoviesController::class, 'allMovies']);
+    Route::get('/now-showing', [MoviesController::class, 'dangChieu']);
+    Route::get('/coming-soon', [MoviesController::class, 'sapChieu']);
+    Route::get('/{slug}', [MoviesController::class, 'show']);
+});
 
 Route::prefix('auth')->group(function () {
-    Route::post('/login', [AuthController::class , 'login']);
-    Route::post('/register', [AuthController::class , 'register']);
-    Route::post('/refresh-token', [AuthController::class , 'refreshToken']);
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/refresh-token', [AuthController::class, 'refreshToken']);
+
     Route::middleware('auth:sanctum')->group(function () {
-            Route::get('/me', [AuthController::class , 'me']);
-            Route::post('/logout', [AuthController::class , 'logout']);
-        }
-        );    });
+        Route::get('/me', [AuthController::class, 'me']);
+        Route::post('/logout', [AuthController::class, 'logout']);
+    });
+});
 
-Route::post('/payment/create',[PaymentController::class,'createPayment']);
-Route::post('/payment/webhook',[PaymentController::class,'handleWebhook']);
+Route::get('/showtimes/{showtime}', [BookingApiController::class, 'showShowtime']);
+Route::get('/products', [BookingApiController::class, 'indexProducts']);
+Route::post('/payments', [PaymentController::class, 'createPayment']);
 
-Route::get('/showtime-info/{showtimeID}', [BookingApiController::class , 'getShowtimeInfo']);
-Route::post('/hold-seat', [BookingApiController::class , 'holdSeat']);
-Route::get('/products',[BookingApiController::class,'getCombos']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/showtimes/{showtime}/seat-holds', [BookingApiController::class, 'storeSeatHold']);
+    Route::get('/customers/me/vouchers', [BookingApiController::class, 'indexMyVouchers']);
+    Route::get('/customers/me/loyalty-points', [BookingApiController::class, 'showMyLoyaltyPoints']);
+    Route::post('/promotions/validate', [BookingApiController::class, 'validatePromotion']);
+});

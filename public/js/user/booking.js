@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const showtimeId = pathSegments.filter(Boolean).pop();
 
     if (!showtimeId || Number.isNaN(Number.parseInt(showtimeId, 10))) {
-        console.error('ID suất chiếu không hợp lệ');
+        console.error('ID suat chieu khong hop le');
         return;
     }
 
@@ -20,7 +20,9 @@ document.addEventListener('DOMContentLoaded', function () {
         selectedSeatsList: document.getElementById('selected-seats-list'),
         selectedProductsList: document.getElementById('selected-products-list'),
         productMap: document.getElementById('product-map'),
-        promotionMap: document.getElementById('promotion-map'),
+        formUserPromotions: document.getElementById('form-user-promotions'),
+        couponCodeInput: document.getElementById('coupon-code-input'),
+        pointStart: document.getElementById('points-start'),
         totalPrice: document.getElementById('total-price'),
         movieName: document.getElementById('book-movie-name'),
         poster: document.getElementById('book-poster'),
@@ -32,6 +34,13 @@ document.addEventListener('DOMContentLoaded', function () {
         csrfToken: document.querySelector('meta[name="csrf-token"]')?.content || ''
     };
 
+    const bookingDiscount = {
+        promoCode: null,
+        promoValue: 0,
+        selectedVoucher: null,
+        pointAmount: 0
+    };
+
     const stepItems = Array.from(document.querySelectorAll('.list-inline-item'));
     const currencyFormatter = new Intl.NumberFormat('vi-VN');
     const selectedSeats = new Map();
@@ -41,10 +50,224 @@ document.addEventListener('DOMContentLoaded', function () {
     let totalSeatPrice = 0;
     let totalProductPrice = 0;
     let productCache = null;
+    let promotionCache = null;
     let productLookup = new Map();
+    let currentShowtime = null;
+    let holdExpirationTimeoutId = null;
+    let isRefreshingToken = false;
+    let tokenRefreshSubscribers = [];
 
     function formatCurrency(value) {
-        return `${currencyFormatter.format(value)} đ`;
+        return `${currencyFormatter.format(Number(value) || 0)} d`;
+    }
+
+    function toAmount(value) {
+        const amount = Number(value);
+        return Number.isFinite(amount) ? amount : 0;
+    }
+
+    function subscribeTokenRefresh(callback) {
+        tokenRefreshSubscribers.push(callback);
+    }
+
+    function flushTokenRefreshSubscribers(token) {
+        tokenRefreshSubscribers.forEach(callback => callback(token));
+        tokenRefreshSubscribers = [];
+    }
+
+    async function refreshAccessToken() {
+        const response = await fetch('/api/auth/refresh-token', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                Accept: 'application/json'
+            }
+        });
+
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || result.status !== 'success' || !result.token) {
+            return null;
+        }
+
+        localStorage.setItem('auth_token', result.token);
+        return result.token;
+    }
+
+    async function apiFetch(url, options = {}) {
+        const finalUrl = url.startsWith('/api') ? url : `/api${url.startsWith('/') ? '' : '/'}${url}`;
+        const makeRequest = (token) => {
+            const headers = {
+                Accept: 'application/json',
+                ...options.headers
+            };
+
+            if (token) {
+                headers.Authorization = `Bearer ${token}`;
+            }
+
+            return fetch(finalUrl, {
+                ...options,
+                headers,
+                credentials: 'include'
+            });
+        };
+
+        let response = await makeRequest(localStorage.getItem('auth_token'));
+        if (response.status !== 401 || finalUrl.includes('/auth/refresh-token')) {
+            return response;
+        }
+
+        if (!isRefreshingToken) {
+            isRefreshingToken = true;
+            refreshAccessToken()
+                .then((newToken) => {
+                    isRefreshingToken = false;
+                    flushTokenRefreshSubscribers(newToken);
+                })
+                .catch(() => {
+                    isRefreshingToken = false;
+                    flushTokenRefreshSubscribers(null);
+                });
+        }
+
+        return new Promise((resolve) => {
+            subscribeTokenRefresh(async (newToken) => {
+                if (!newToken) {
+                    resolve(response);
+                    return;
+                }
+
+                response = await makeRequest(newToken);
+                resolve(response);
+            });
+        });
+    }
+
+    function getSubtotal() {
+        return totalSeatPrice + totalProductPrice;
+    }
+
+    function getVoucherDiscount(subtotal) {
+        if (!bookingDiscount.selectedVoucher) {
+            return 0;
+        }
+
+        const voucher = bookingDiscount.selectedVoucher;
+        return voucher.type === 'phan_tram'
+            ? (subtotal * voucher.value) / 100
+            : voucher.value;
+    }
+
+    function getTotalDiscount(subtotal) {
+        return getVoucherDiscount(subtotal) + bookingDiscount.pointAmount + bookingDiscount.promoValue;
+    }
+
+    function getBookingStorageKey(name) {
+        return `booking_${name}_${showtimeId}`;
+    }
+
+    function clearBookingStorage() {
+        localStorage.removeItem('selected_seats');
+        localStorage.removeItem('booking_step');
+        localStorage.removeItem(getBookingStorageKey('hold_expires_at'));
+        localStorage.removeItem(getBookingStorageKey('return_url'));
+    }
+
+    function resetBookingState() {
+        selectedSeats.clear();
+        selectedProducts.clear();
+        holdingSeatRequests.clear();
+
+        totalSeatPrice = 0;
+        totalProductPrice = 0;
+        bookingDiscount.promoCode = null;
+        bookingDiscount.promoValue = 0;
+        bookingDiscount.selectedVoucher = null;
+        bookingDiscount.pointAmount = 0;
+
+        if (holdExpirationTimeoutId) {
+            clearTimeout(holdExpirationTimeoutId);
+            holdExpirationTimeoutId = null;
+        }
+
+        if (dom.couponCodeInput) {
+            dom.couponCodeInput.value = '';
+        }
+
+        if (dom.pointStart) {
+            dom.pointStart.value = '';
+        }
+
+        const couponMessage = document.getElementById('coupon-message');
+        if (couponMessage) {
+            couponMessage.innerHTML = '';
+        }
+
+        if (dom.formUserPromotions) {
+            dom.formUserPromotions
+                .querySelectorAll('input[name="user-voucher"]')
+                .forEach(input => {
+                    input.checked = false;
+                });
+        }
+
+        renderSelectedSeatsList();
+        renderSelectedProductsSidebar();
+        updateTotalPrice();
+    }
+
+    function getReturnDetailUrl() {
+        const savedUrl = localStorage.getItem(getBookingStorageKey('return_url'));
+        if (savedUrl) {
+            return savedUrl;
+        }
+
+        const movieSlug = currentShowtime?.movie?.slug;
+        const movieId = currentShowtime?.movie?.id;
+        return movieSlug ? `/movie/${movieSlug}` : (movieId ? `/movie/${movieId}` : '/');
+    }
+
+    function expireBookingSession() {
+        resetBookingState();
+        clearBookingStorage();
+        window.location.href = getReturnDetailUrl();
+    }
+
+    function scheduleHoldExpiration(expiresAt) {
+        if (!expiresAt) {
+            return;
+        }
+
+        const expiresAtMs = new Date(expiresAt).getTime();
+        if (Number.isNaN(expiresAtMs)) {
+            return;
+        }
+
+        localStorage.setItem(getBookingStorageKey('hold_expires_at'), new Date(expiresAtMs).toISOString());
+
+        if (holdExpirationTimeoutId) {
+            clearTimeout(holdExpirationTimeoutId);
+        }
+
+        const delay = expiresAtMs - Date.now();
+        if (delay <= 0) {
+            expireBookingSession();
+            return;
+        }
+
+        holdExpirationTimeoutId = window.setTimeout(function () {
+            alert('Het 10 phut giu ghe. He thong se dua ban ve trang chi tiet.');
+            expireBookingSession();
+        }, delay);
+    }
+
+    function restoreHoldExpiration() {
+        const savedExpiresAt = localStorage.getItem(getBookingStorageKey('hold_expires_at'));
+        if (!savedExpiresAt) {
+            return;
+        }
+
+        scheduleHoldExpiration(savedExpiresAt);
     }
 
     function saveSelectedSeats() {
@@ -56,8 +279,11 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function updateTotalPrice() {
+        const subtotal = getSubtotal();
+        const finalPrice = Math.max(0, subtotal - getTotalDiscount(subtotal));
+
         if (dom.totalPrice) {
-            dom.totalPrice.innerText = formatCurrency(totalSeatPrice + totalProductPrice);
+            dom.totalPrice.innerText = formatCurrency(finalPrice);
         }
     }
 
@@ -67,12 +293,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (selectedSeats.size === 0) {
-            dom.selectedSeatsList.textContent = 'Chưa chọn ghế';
+            dom.selectedSeatsList.textContent = 'Chua chon ghe';
             return;
         }
 
         const names = Array.from(selectedSeats.values(), seat => seat.name).join(', ');
-        dom.selectedSeatsList.innerHTML = `Ghế: <span class="text-dark">${names}</span>`;
+        dom.selectedSeatsList.innerHTML = `Ghe: <span class="text-dark">${names}</span>`;
     }
 
     function renderSelectedProductsSidebar() {
@@ -93,6 +319,62 @@ document.addEventListener('DOMContentLoaded', function () {
         `).join('');
     }
 
+    async function refreshSeatHolds() {
+        if (selectedSeats.size === 0) {
+            return true;
+        }
+
+        const holdRequests = Array.from(selectedSeats.values(), seat => apiFetch(`/showtimes/${showtimeId}/seat-holds`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': dom.csrfToken
+                },
+                body: JSON.stringify({ ghe_id: seat.id })
+            }).then(async (response) => ({
+                ok: response.ok,
+                data: await response.json().catch(() => ({}))
+            }))
+        );
+
+        const holdResults = await Promise.all(holdRequests);
+        const failedHold = holdResults.find(result => !result.ok || result.data?.status !== 'success');
+        if (failedHold) {
+            alert(failedHold.data?.message || 'Khong the tiep tuc giu ghe');
+            return false;
+        }
+
+        const latestExpiresAt = holdResults
+            .map(result => result.data?.data?.expires_at)
+            .filter(Boolean)
+            .sort()
+            .pop();
+
+        scheduleHoldExpiration(latestExpiresAt);
+        return true;
+    }
+
+    async function preloadPromotionData() {
+        if (promotionCache) {
+            return promotionCache;
+        }
+
+        const [voucherRes, memberRes] = await Promise.all([
+            apiFetch('/customers/me/vouchers'),
+            apiFetch('/customers/me/loyalty-points')
+        ]);
+
+        const voucherData = await voucherRes.json().catch(() => ({ status: 'error', data: [] }));
+        const memberData = await memberRes.json().catch(() => ({ status: 'error', data: { points: 0 } }));
+
+        promotionCache = {
+            vouchers: voucherRes.ok && voucherData.status === 'success' ? voucherData.data : [],
+            memberInfo: memberRes.ok && memberData.status === 'success' ? memberData.data : { points: 0 }
+        };
+
+        return promotionCache;
+    }
+
     function updateProductQuantity(productId, delta) {
         const item = selectedProducts.get(productId);
 
@@ -109,10 +391,10 @@ document.addEventListener('DOMContentLoaded', function () {
             selectedProducts.set(productId, {
                 id: productId,
                 name: product.ten_san_pham,
-                price: Number(product.gia_ban),
+                price: toAmount(product.gia_ban),
                 qty: 1
             });
-            totalProductPrice += Number(product.gia_ban);
+            totalProductPrice += toAmount(product.gia_ban);
         } else {
             item.qty += delta;
             totalProductPrice += item.price * delta;
@@ -133,35 +415,30 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function showSeatStep() {
-        if (dom.seatMap) {
-            dom.seatMap.style.display = 'block';
-        }
-        if (dom.cardSeat) {
-            dom.cardSeat.style.display = 'block';
-        }
-        if (dom.cardProduct) {
-            dom.cardProduct.style.display = 'none';
-        }
-        if (dom.chooseSeat) {
-            setActiveStep(dom.chooseSeat);
-        }
+        if (dom.seatMap) dom.seatMap.style.display = 'block';
+        if (dom.cardSeat) dom.cardSeat.style.display = 'block';
+        if (dom.cardProduct) dom.cardProduct.style.display = 'none';
+        if (dom.cardPromotion) dom.cardPromotion.style.display = 'none';
+        if (dom.chooseSeat) setActiveStep(dom.chooseSeat);
+
         if (dom.btnContinue) {
-            dom.btnContinue.innerText = 'Tiếp tục';
-            dom.btnContinue.classList.replace('btn-success', 'btn-warning');
+            dom.btnContinue.innerText = 'Tiep tuc';
+            dom.btnContinue.classList.remove('btn-success');
+            dom.btnContinue.classList.add('btn-warning');
         }
 
         localStorage.setItem('booking_step', 'seats');
     }
 
     async function handlePayment() {
-        const amount = totalSeatPrice + totalProductPrice;
+        const subtotal = getSubtotal();
+        const amount = Math.max(0, subtotal - getTotalDiscount(subtotal));
 
         try {
-            const response = await fetch('/api/payment/create', {
+            const response = await apiFetch('/payments', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    Accept: 'application/json',
                     'X-CSRF-TOKEN': dom.csrfToken
                 },
                 body: JSON.stringify({ amount })
@@ -173,21 +450,21 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            alert('Lỗi từ hệ thống: ' + (result.message || 'Không xác định'));
+            alert(result.message || 'Khong the tao thanh toan');
         } catch (error) {
-            console.error('Lỗi JS:', error);
-            alert('Đã xảy ra lỗi khi kết nối với máy chủ.');
+            console.error('Loi payment:', error);
+            alert('Da xay ra loi khi ket noi may chu.');
         }
     }
 
     async function showProductStep() {
         try {
             if (!productCache) {
-                const response = await fetch('/api/products');
+                const response = await apiFetch('/products');
                 const result = await response.json();
 
-                if (result.status !== 'success') {
-                    throw new Error('Không thể tải sản phẩm');
+                if (!response.ok || result.status !== 'success') {
+                    throw new Error('Khong the tai san pham');
                 }
 
                 productCache = result.data;
@@ -195,35 +472,212 @@ document.addEventListener('DOMContentLoaded', function () {
                 renderProduct(productCache);
             }
 
-            if (dom.seatMap) {
-                dom.seatMap.style.display = 'none';
-            }
-            if (dom.cardSeat) {
-                dom.cardSeat.style.display = 'none';
-            }
-            if (dom.cardProduct) {
-                dom.cardProduct.style.display = 'block';
-            }
-            if (dom.chooseProduct) {
-                setActiveStep(dom.chooseProduct);
-            }
-            if (dom.btnContinue) {
-                dom.btnContinue.innerText = 'TIẾP TỤC';
-            }
+            if (dom.seatMap) dom.seatMap.style.display = 'none';
+            if (dom.cardSeat) dom.cardSeat.style.display = 'none';
+            if (dom.cardProduct) dom.cardProduct.style.display = 'block';
+            if (dom.cardPromotion) dom.cardPromotion.style.display = 'none';
+            if (dom.chooseProduct) setActiveStep(dom.chooseProduct);
+            if (dom.btnContinue) dom.btnContinue.innerText = 'Tiep tuc';
 
             localStorage.setItem('booking_step', 'products');
+
+            preloadPromotionData().catch(() => {
+                promotionCache = null;
+            });
         } catch (error) {
-            alert('Không thể tải sản phẩm');
+            alert('Khong the tai san pham');
+        }
+    }
+
+    function showPromotionStepLayout() {
+        if (dom.seatMap) dom.seatMap.style.display = 'none';
+        if (dom.cardSeat) dom.cardSeat.style.display = 'none';
+        if (dom.cardProduct) dom.cardProduct.style.display = 'none';
+        if (dom.cardPromotion) dom.cardPromotion.style.display = 'block';
+        if (dom.choosePromotion) setActiveStep(dom.choosePromotion);
+
+        if (dom.btnContinue) {
+            dom.btnContinue.innerText = 'Thanh toan';
+            dom.btnContinue.classList.remove('btn-warning');
+            dom.btnContinue.classList.add('btn-success');
+        }
+
+        localStorage.setItem('booking_step', 'promotions');
+    }
+
+    function renderPromotionLoadingState() {
+        if (dom.formUserPromotions) {
+            dom.formUserPromotions.innerHTML = '<div class="text-muted small">Dang tai khuyen mai...</div>';
+        }
+
+        if (dom.pointStart) {
+            dom.pointStart.placeholder = 'Dang tai diem tich luy...';
+        }
+    }
+
+    async function showPromotionStep() {
+        showPromotionStepLayout();
+        renderPromotionLoadingState();
+
+        try {
+            promotionCache = await preloadPromotionData();
+            renderPromotion(promotionCache);
+        } catch (error) {
+            console.error('Loi tai khuyen mai:', error);
+            promotionCache = {
+                vouchers: [],
+                memberInfo: { points: 0 }
+            };
+
+            renderPromotion(promotionCache);
+        }
+    }
+
+    function renderPromotion(promotionData) {
+        const userPromo = dom.formUserPromotions;
+        const pointStart = dom.pointStart;
+        const { vouchers, memberInfo } = promotionData;
+
+        if (userPromo) {
+            userPromo.innerHTML = renderVoucherList(vouchers);
+        }
+
+        if (pointStart) {
+            pointStart.placeholder = `Ban co ${memberInfo.points} diem`;
+        }
+    }
+
+    function renderVoucherList(vouchers) {
+        if (!vouchers || vouchers.length === 0) {
+            return '<div class="text-muted small">Khong co voucher kha dung.</div>';
+        }
+
+        return vouchers.map(voucher => `
+            <div class="form-check mb-3">
+                <input
+                    class="form-check-input"
+                    type="checkbox"
+                    name="user-voucher"
+                    id="user-voucher-${voucher.id}"
+                    value="${voucher.id}"
+                    data-type="${voucher.discount_type}"
+                    data-value="${voucher.discount_value}"
+                >
+                <label class="form-check-label" for="user-voucher-${voucher.id}">
+                    ${voucher.name} - ${voucher.discount_type === 'phan_tram' ? `${voucher.discount_value}%` : formatCurrency(voucher.discount_value)}
+                </label>
+            </div>
+        `).join('');
+    }
+
+    function setupPromotionEvent() {
+        if (dom.formUserPromotions) {
+            dom.formUserPromotions.addEventListener('change', function (event) {
+                const target = event.target;
+                if (target.name !== 'user-voucher') {
+                    return;
+                }
+
+                const voucherInputs = dom.formUserPromotions.querySelectorAll('input[name="user-voucher"]');
+                voucherInputs.forEach(input => {
+                    if (input !== target) {
+                        input.checked = false;
+                    }
+                });
+
+                if (!target.checked) {
+                    bookingDiscount.selectedVoucher = null;
+                    updateTotalPrice();
+                    return;
+                }
+
+                bookingDiscount.selectedVoucher = {
+                    id: Number(target.value),
+                    type: target.dataset.type,
+                    value: toAmount(target.dataset.value)
+                };
+                updateTotalPrice();
+            });
+        }
+
+        const btnApplyCoupon = document.getElementById('btn-apply-coupon');
+        if (btnApplyCoupon) {
+            btnApplyCoupon.addEventListener('click', async function () {
+                const code = dom.couponCodeInput?.value.trim() || '';
+                await handleApplyCouponCode(code);
+            });
+        }
+
+        const btnApplyPoints = document.getElementById('btn-apply-points');
+        if (btnApplyPoints) {
+            btnApplyPoints.addEventListener('click', function () {
+                const pointsToUse = Number.parseInt(dom.pointStart?.value.trim() || '', 10);
+                const userMaxPoints = promotionCache?.memberInfo?.points || 0;
+
+                if (Number.isNaN(pointsToUse) || pointsToUse <= 0) {
+                    alert('Vui long nhap so diem hop le');
+                    return;
+                }
+
+                if (pointsToUse > userMaxPoints) {
+                    alert('Ban khong du diem tich luy');
+                    return;
+                }
+
+                bookingDiscount.pointAmount = pointsToUse;
+                updateTotalPrice();
+            });
+        }
+    }
+
+    async function handleApplyCouponCode(code) {
+        if (!code) {
+            alert('Vui long nhap ma giam gia');
+            return;
+        }
+
+        try {
+            const response = await apiFetch('/promotions/validate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': dom.csrfToken
+                },
+                body: JSON.stringify({
+                    code,
+                    total_amount: getSubtotal()
+                })
+            });
+            const result = await response.json();
+
+            if (!response.ok || result.status !== 'success') {
+                alert(result.message || 'Ma khong hop le');
+                return;
+            }
+
+            bookingDiscount.promoCode = code;
+            bookingDiscount.promoValue = toAmount(result.data.discount_value);
+
+            const couponMessage = document.getElementById('coupon-message');
+            if (couponMessage) {
+                couponMessage.innerHTML = `<span class="text-success">Ap dung ma thanh cong: -${formatCurrency(result.data.discount_value)}</span>`;
+            }
+
+            updateTotalPrice();
+        } catch (error) {
+            console.error('Loi check coupon:', error);
         }
     }
 
     function renderMovieInfo(showtime) {
+        currentShowtime = showtime;
+        localStorage.setItem(getBookingStorageKey('return_url'), getReturnDetailUrl());
         if (dom.movieName) dom.movieName.innerText = showtime.movie.ten_phim;
-        if (dom.poster) dom.poster.src = '/storage/' + showtime.movie.poster_url;
+        if (dom.poster) dom.poster.src = `/storage/${showtime.movie.poster_url}`;
         if (dom.time) dom.time.innerText = showtime.gio_chieu;
         if (dom.date) dom.date.innerText = showtime.ngay_chieu;
         if (dom.currentTimeDisplay) dom.currentTimeDisplay.innerText = showtime.gio_chieu;
-        if (dom.cinema) dom.cinema.innerText = 'Galaxy Nguyễn Du';
+        if (dom.cinema) dom.cinema.innerText = 'Galaxy Nguyen Du';
         if (dom.room) dom.room.innerText = showtime.room.ten_phong;
     }
 
@@ -254,7 +708,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 seatEl.innerText = seat.so_ghe;
                 seatEl.dataset.id = seatId;
                 seatEl.dataset.name = `${row}${seat.so_ghe}`;
-                seatEl.dataset.price = seat.gia_ghe;
+                seatEl.dataset.price = toAmount(seat.gia_ghe);
 
                 if (selectedSeats.has(seatId)) {
                     seatEl.classList.add('selected');
@@ -273,14 +727,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         dom.seatMap.innerHTML = '';
         dom.seatMap.appendChild(fragment);
-    }
-
-    function renderPromotion()
-    {
-        if(!dom.promotionMap || !dom.cardPromotion) return;
-        dom.cardPromotion.style.display = 'block';
-        dom.promotionMap.className = 'row g-3';
-        
     }
 
     async function handleSeatSelection(el) {
@@ -302,7 +748,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const seat = {
             id: seatId,
             name: el.dataset.name,
-            price: Number.parseFloat(el.dataset.price)
+            price: toAmount(el.dataset.price)
         };
 
         selectedSeats.set(seatId, seat);
@@ -314,34 +760,37 @@ document.addEventListener('DOMContentLoaded', function () {
 
         holdingSeatRequests.add(seatId);
         try {
-            const response = await fetch('/api/hold-seat', {
+            const response = await apiFetch(`/showtimes/${showtimeId}/seat-holds`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': dom.csrfToken
                 },
-                body: JSON.stringify({ suat_chieu_id: showtimeId, ghe_id: seatId })
+                body: JSON.stringify({ ghe_id: seatId })
             });
             const data = await response.json();
 
-            if (data.status !== 'holding') {
+            if (!response.ok || data.status !== 'success') {
                 totalSeatPrice -= seat.price;
                 selectedSeats.delete(seatId);
                 el.classList.remove('selected');
                 saveSelectedSeats();
                 updateTotalPrice();
                 renderSelectedSeatsList();
-                alert(data.message);
+                alert(data.message || 'Khong the giu ghe');
+                return;
             }
+
+            scheduleHoldExpiration(data.data?.expires_at);
         } catch (error) {
-            console.error('Lỗi giữ ghế', error);
+            console.error('Loi giu ghe', error);
             totalSeatPrice -= seat.price;
             selectedSeats.delete(seatId);
             el.classList.remove('selected');
             saveSelectedSeats();
             updateTotalPrice();
             renderSelectedSeatsList();
-            alert('Đã xảy ra lỗi khi giữ ghế. Vui lòng thử lại.');
+            alert('Da xay ra loi khi giu ghe. Vui long thu lai.');
         } finally {
             holdingSeatRequests.delete(seatId);
         }
@@ -427,12 +876,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function init() {
         restoreSavedSeats();
+        setupPromotionEvent();
+        restoreHoldExpiration();
 
         try {
-            const response = await fetch(`/api/showtime-info/${showtimeId}`);
+            const response = await apiFetch(`/showtimes/${showtimeId}`);
             const result = await response.json();
 
-            if (result.status !== 'success') {
+            if (!response.ok || result.status !== 'success') {
                 return;
             }
 
@@ -442,25 +893,43 @@ document.addEventListener('DOMContentLoaded', function () {
             renderSelectedProductsSidebar();
             updateTotalPrice();
 
-            if (localStorage.getItem('booking_step') === 'products') {
+            const savedStep = localStorage.getItem('booking_step');
+            if (savedStep === 'promotions') {
                 await showProductStep();
+                await showPromotionStep();
+            } else if (savedStep === 'products') {
+                await showProductStep();
+            } else {
+                showSeatStep();
             }
         } catch (error) {
-            console.error('Lỗi tải thông tin suất chiếu', error);
+            console.error('Loi tai thong tin suat chieu', error);
         }
     }
 
     if (dom.btnContinue) {
         dom.btnContinue.addEventListener('click', async function () {
             const isSeatStepVisible = dom.seatMap && dom.seatMap.style.display !== 'none';
+            const isProductStepVisible = dom.cardProduct && dom.cardProduct.style.display !== 'none';
 
             if (isSeatStepVisible) {
                 if (selectedSeats.size === 0) {
-                    alert('Vui lòng chọn ghế trước khi tiếp tục!');
+                    alert('Vui long chon ghe truoc khi tiep tuc');
                     return;
                 }
 
                 await showProductStep();
+                refreshSeatHolds().catch(() => false);
+                return;
+            }
+
+            if (isProductStepVisible) {
+                const isHoldRefreshed = await refreshSeatHolds();
+                if (!isHoldRefreshed) {
+                    return;
+                }
+
+                await showPromotionStep();
                 return;
             }
 
@@ -470,6 +939,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (dom.btnBack) {
         dom.btnBack.addEventListener('click', function () {
+            if (dom.cardPromotion && dom.cardPromotion.style.display !== 'none') {
+                showProductStep();
+                return;
+            }
+
             if (dom.cardProduct && dom.cardProduct.style.display !== 'none') {
                 showSeatStep();
                 return;

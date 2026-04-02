@@ -13,16 +13,13 @@ class Showtimes extends Model
         'sound_id',
         'subtitle_id',
         'ngay_gio_chieu',
-        'gia_goc',
-        'gia_ban',
+        'gia',
         'trang_thai'
     ];
     protected $appends = ['gio_chieu', 'ngay_chieu'];
     
     protected $casts = [
-        'gia_goc' => 'decimal:2',
-        'gia_ban' => 'decimal:2',
-
+        'gia' => 'decimal:2',
         'ngay_gio_chieu' => 'datetime',
     ];
     public function movie()

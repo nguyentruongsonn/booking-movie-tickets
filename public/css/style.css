@@ -13206,11 +13206,9 @@ h5,
 }
 
 .form-control {
-  height: 52px !important;
   background: #fff !important;
   color: #000000 !important;
-  font-size: 18px;
-  border-radius: 5px;
+  border-radius: 20px;
   -webkit-box-shadow: none !important;
   box-shadow: none !important;
 }

@@ -22,8 +22,8 @@ class Customers extends Authenticatable
         'provider_id',
         'provider_name',
         'provider_token',
-        'provider_refresh_token',   
-        'email_verified_at',      
+        'provider_refresh_token',
+        'email_verified_at',
     ];
 
     protected $hidden = [
@@ -52,7 +52,12 @@ class Customers extends Authenticatable
         return $this->hasMany(Tickets::class , 'khach_hang_id');
     }
 
-    //Cộng điêm tích lũy
+    public function promotions()
+    {
+        return $this->belongsToMany(Promotions::class, 'customer_promotion', 'customer_id', 'promotion_id')
+                    ->withPivot('trang_thai', 'so_lan_da_dung', 'ngay_su_dung')
+                    ->withTimestamps();
+    }
     public function addLoyaltyPoints($points)
     {
         $this->diem_tich_luy += $points;

@@ -15,7 +15,19 @@ const DAY_PICKER_STYLE_ID = 'day-picker-style';
 const SHOWTIME_BUFFER_MS = 20 * 60 * 1000;
 
 function getMovieListEndpoint(type) {
-    return type === MOVIE_TYPES.ALL ? '/api/movie/all' : `/api/movie/${type}`;
+    if (type === MOVIE_TYPES.ALL) {
+        return '/api/movies';
+    }
+
+    if (type === MOVIE_TYPES.NOW_SHOWING) {
+        return '/api/movies/now-showing';
+    }
+
+    if (type === MOVIE_TYPES.COMING_SOON) {
+        return '/api/movies/coming-soon';
+    }
+
+    return '/api/movies';
 }
 
 function getMovieStatusLabel(movie) {
@@ -37,13 +49,14 @@ function getMovieCategories(movie) {
         .filter(Boolean)
         .join(', ');
 }
-
+// Chuyển đổi đối tượng Date thành chuỗi định dạng YYYY-MM-DD theo múi giờ địa phương
 function toLocalDateKey(date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
+
 
 function getYoutubeEmbedUrl(url) {
     if (!url) {
@@ -135,22 +148,13 @@ function updateActiveButton(activeType) {
     document.getElementById(activeButtonId)?.classList.add('active');
 }
 
-function updatePageTitle(type, titleElement) {
-    if (titleElement) {
-        titleElement.innerText = TITLE_BY_TYPE[type] || TITLE_BY_TYPE[MOVIE_TYPES.ALL];
-    }
-}
 
 async function loadMovies(type = MOVIE_TYPES.NOW_SHOWING) {
     const container = document.getElementById('movie-list-container');
-    const pageTitle = document.getElementById('page-title');
-
     if (!container) {
         return;
     }
-
     updateActiveButton(type);
-    updatePageTitle(type, pageTitle);
     renderLoadingState(container);
 
     try {
@@ -425,7 +429,7 @@ async function fetchMovieDetail() {
     }
 
     try {
-        const response = await fetch(`/api/movie/${movieSlug}`, {
+        const response = await fetch(`/api/movies/${movieSlug}`, {
             headers: { Accept: 'application/json' }
         });
 
