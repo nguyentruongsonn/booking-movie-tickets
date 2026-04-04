@@ -3,32 +3,37 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\LoginRequest;
+use App\Http\Requests\RegisterRequest;
 use App\Models\Customers;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Cookie;
-use Laravel\Sanctum\PersonalAccessToken;
+use Tymon\JWTAuth\Factory;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 class AuthController extends Controller
 {
+    private const ACCESS_TTL_MINUTES = 15;
+    private const REFRESH_TTL_MINUTES = 10080;
+
     public function register(RegisterRequest $request)
     {
         try {
             $validated = $request->validated();
             $validated['mat_khau'] = Hash::make($validated['mat_khau']);
-            $validated = Customers::create($validated);
+            Customers::create($validated);
+
             return response()->json([
                 'status' => 'success',
-                'message' => 'Đăng ký thành công',
+                'message' => 'Dang ky thanh cong',
             ], 200);
-        }
-        catch (\Exception $e) {
+        } catch (\Exception $e) {
+            Log::error('Loi dang ky: ' . $e->getMessage());
+
             return response()->json([
                 'status' => 'error',
-                'message' => 'Đăng ký thất bại'
+                'message' => 'Dang ky that bai',
             ], 500);
         }
     }
@@ -42,77 +47,143 @@ class AuthController extends Controller
             if (!$customer || !Hash::check($request->mat_khau, $customer->mat_khau)) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Email hoặc mật khẩu không chính xác'
+                    'message' => 'Email hoac mat khau khong chinh xac',
                 ], 401);
             }
+
             if (!$customer->trang_thai) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Tài khoản của bạn hiện đang bị khóa'
+                    'message' => 'Tai khoan cua ban hien dang bi khoa',
                 ], 403);
             }
 
-
             $device = $request->device_name ?? $request->header('User-Agent', 'Unknown Device');
-            $accessToken = $customer->createToken($device . '_access', ['*'], now()->addMinutes(15))->plainTextToken;
-            $refreshToken = $customer->createToken($device . '_refresh', ['*'], now()->addDays(7))->plainTextToken;
-            $cookie = cookie('refresh_token', $refreshToken, 43200, '/', null, false, true, false, 'Lax');
+            $tokens = $this->issueJwtTokens($customer, $device);
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Đăng nhập thành công',
-                'token' => $accessToken,
+                'message' => 'Dang nhap thanh cong',
+                'token' => $tokens['access_token'],
                 'user' => [
                     'id' => $customer->id,
                     'ho_ten' => $customer->ho_ten,
-                ]
-            ], 200)->withCookie($cookie);
+                ],
+            ], 200)->withCookie($this->makeRefreshCookie($tokens['refresh_token']));
+        } catch (\Exception $e) {
+            Log::error('Loi dang nhap JWT: ' . $e->getMessage());
 
-        }
-        catch (\Exception $e) {
-            Log::error("Lỗi đăng nhập: " . $e->getMessage());
             return response()->json([
                 'status' => 'error',
-                'message' => 'Có lỗi hệ thống xảy ra, vui lòng thử lại sau!'
+                'message' => 'Co loi he thong xay ra, vui long thu lai sau!',
             ], 500);
         }
     }
 
     public function logout(Request $request)
     {
-        $user = $request->user();
-        if ($user) {
-            $user->tokens()->delete();
+        try {
+            if ($token = JWTAuth::getToken()) {
+                JWTAuth::setToken($token)->invalidate(true);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Khong the invalidate access token: ' . $e->getMessage());
         }
+
+        $refreshToken = $request->cookie('refresh_token');
+        if ($refreshToken) {
+            try {
+                JWTAuth::setToken($refreshToken)->invalidate(true);
+            } catch (\Throwable $e) {
+                Log::warning('Khong the invalidate refresh token: ' . $e->getMessage());
+            }
+        }
+
         return response()->json(['status' => 'success'])
             ->withoutCookie('refresh_token');
     }
 
     public function refreshToken(Request $request)
     {
-        $tokenTho = $request->cookie('refresh_token');
-        $tokenInstance = PersonalAccessToken::findToken($tokenTho);
-        if (!$tokenInstance || !$tokenInstance->tokenable) {
-            return response()->json(['status' => 'error', 'message' => 'Token không hợp lệ hoặc đã hết hạn'], 401);
+        $refreshToken = $request->cookie('refresh_token');
+        if (!$refreshToken) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Khong tim thay refresh token',
+            ], 401);
         }
 
-        $user = $tokenInstance->tokenable;
-        $device = $request->device_name ?? $request->header('User-Agent', 'Unknown Device');
-        $user->tokens()->delete();
+        try {
+            $payload = JWTAuth::setToken($refreshToken)->getPayload();
+            if (($payload->get('token_type') ?? null) !== 'refresh') {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Refresh token khong hop le',
+                ], 401);
+            }
 
+            $user = JWTAuth::setToken($refreshToken)->toUser();
+            if (!$user) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Nguoi dung khong ton tai',
+                ], 401);
+            }
 
-        $newAccess = $user->createToken($device . '_access', ['*'], now()->addMinutes(15))->plainTextToken;
-        $newRefresh = $user->createToken($device . '_refresh', ['*'], now()->addDays(7))->plainTextToken;
-        $newCookie = cookie('refresh_token', $newRefresh, 10080, '/', null, false, true, false, 'Lax');
+            try {
+                JWTAuth::setToken($refreshToken)->invalidate(true);
+            } catch (\Throwable $e) {
+                Log::warning('Khong the invalidate refresh token cu: ' . $e->getMessage());
+            }
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Refresh token thành công',
-            'token' => $newAccess,
-        ], 200)->withCookie($newCookie); 
+            $device = $request->device_name ?? $request->header('User-Agent', 'Unknown Device');
+            $tokens = $this->issueJwtTokens($user, $device);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Refresh token thanh cong',
+                'token' => $tokens['access_token'],
+            ], 200)->withCookie($this->makeRefreshCookie($tokens['refresh_token']));
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Token khong hop le hoac da het han',
+            ], 401);
+        }
     }
+
     public function me(Request $request)
     {
-        return response()->json(['status' => 'success', 'data' => $request->user()]);
+        return response()->json([
+            'status' => 'success',
+            'data' => $request->user(),
+        ]);
+    }
+
+    private function issueJwtTokens(Customers $customer, string $device): array
+    {
+        app(Factory::class)->setTTL(self::ACCESS_TTL_MINUTES);
+        $accessToken = JWTAuth::claims([
+            'token_type' => 'access',
+            'device_name' => $device,
+        ])->fromUser($customer);
+
+        app(Factory::class)->setTTL(self::REFRESH_TTL_MINUTES);
+        $refreshToken = JWTAuth::claims([
+            'token_type' => 'refresh',
+            'device_name' => $device,
+        ])->fromUser($customer);
+
+        app(Factory::class)->setTTL(self::ACCESS_TTL_MINUTES);
+
+        return [
+            'access_token' => $accessToken,
+            'refresh_token' => $refreshToken,
+        ];
+    }
+
+    private function makeRefreshCookie(string $refreshToken)
+    {
+        return cookie('refresh_token', $refreshToken, self::REFRESH_TTL_MINUTES, '/', null, false, true, false, 'Lax');
     }
 }

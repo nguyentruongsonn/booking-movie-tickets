@@ -36,9 +36,8 @@ return [
 
         // API guards
         'api' => [
-            'driver' => 'token',
+            'driver' => 'jwt',
             'provider' => 'customers',
-            'hash' => false,
         ],
 
         'api_employee' => [

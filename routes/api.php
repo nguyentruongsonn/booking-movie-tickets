@@ -18,7 +18,7 @@ Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/refresh-token', [AuthController::class, 'refreshToken']);
 
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware('auth:api')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
     });
@@ -28,7 +28,7 @@ Route::get('/showtimes/{showtime}', [BookingApiController::class, 'showShowtime'
 Route::get('/products', [BookingApiController::class, 'indexProducts']);
 Route::post('/payments', [PaymentController::class, 'createPayment']);
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware('auth:api')->group(function () {
     Route::post('/showtimes/{showtime}/seat-holds', [BookingApiController::class, 'storeSeatHold']);
     Route::get('/customers/me/vouchers', [BookingApiController::class, 'indexMyVouchers']);
     Route::get('/customers/me/loyalty-points', [BookingApiController::class, 'showMyLoyaltyPoints']);

@@ -480,7 +480,6 @@ document.addEventListener('DOMContentLoaded', function () {
             if (dom.btnContinue) dom.btnContinue.innerText = 'Tiep tuc';
 
             localStorage.setItem('booking_step', 'products');
-
             preloadPromotionData().catch(() => {
                 promotionCache = null;
             });

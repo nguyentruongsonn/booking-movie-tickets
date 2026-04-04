@@ -4,22 +4,15 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 
 class RegisterRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
@@ -28,41 +21,47 @@ class RegisterRequest extends FormRequest
             'mat_khau' => 'required|string|min:6|confirmed',
             'mat_khau_confirmation' => 'required',
             'ngay_sinh' => 'nullable|date',
-            'gioi_tinh' => 'nullable|in:Nam,Nữ,Khác',
+            'gioi_tinh' => 'nullable|string|max:20',
             'so_dien_thoai' => 'nullable|string|max:15',
         ];
     }
-    public function messages()
+
+    public function messages(): array
     {
         return [
-            'ho_ten.required' => 'Vui lòng nhập họ tên',
-            'email.required' => 'Vui lòng nhập email',
-            'email.email' => 'Email không hợp lệ',
-            'email.unique' => 'Email đã tồn tại',
-            'mat_khau.required' => 'Vui lòng nhập mật khẩu',
-            'mat_khau.min' => 'Mật khẩu phải ít nhất 6 ký tự',
-            'mat_khau.confirmed' => 'Xác nhận mật khẩu không khớp',
-            'mat_khau_confirmation.required' => 'Vui lòng xác nhận mật khẩu',
-            'ngay_sinh.date' => 'Ngày sinh không hợp lệ',
-            'gioi_tinh.in' => 'Giới tính không hợp lệ',
+            'ho_ten.required' => 'Vui long nhap ho ten',
+            'email.required' => 'Vui long nhap email',
+            'email.email' => 'Email khong hop le',
+            'email.unique' => 'Email da ton tai',
+            'mat_khau.required' => 'Vui long nhap mat khau',
+            'mat_khau.min' => 'Mat khau phai it nhat 6 ky tu',
+            'mat_khau.confirmed' => 'Xac nhan mat khau khong khop',
+            'mat_khau_confirmation.required' => 'Vui long xac nhan mat khau',
+            'ngay_sinh.date' => 'Ngay sinh khong hop le',
         ];
     }
-    private function cleanName($name)
+
+    private function cleanName(?string $name): ?string
     {
+        if (!$name) {
+            return null;
+        }
+
         $name = trim(preg_replace('/\s+/', ' ', $name));
         return mb_convert_case($name, MB_CASE_TITLE, 'UTF-8');
     }
 
-    public function cleanEmail($email)
+    private function cleanEmail(?string $email): ?string
     {
-        return trim(strtolower($email));
+        return $email ? trim(strtolower($email)) : null;
     }
 
-    protected function prepareforValidation()
+    protected function prepareForValidation(): void
     {
         $this->merge([
             'email' => $this->cleanEmail($this->email),
             'ho_ten' => $this->cleanName($this->ho_ten),
+            'gioi_tinh' => $this->gioi_tinh ? Str::title(trim($this->gioi_tinh)) : null,
         ]);
     }
 }

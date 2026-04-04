@@ -1,11 +1,13 @@
 <?php
 
 namespace App\Models;
+
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class Customers extends Authenticatable
+class Customers extends Authenticatable implements JWTSubject
 {
     use Notifiable;
     use HasApiTokens;
@@ -43,6 +45,17 @@ class Customers extends Authenticatable
     {
         return $this->mat_khau;
     }
+
+    public function getJWTIdentifier()
+    {
+        return $this->getKey();
+    }
+
+    public function getJWTCustomClaims()
+    {
+        return [];
+    }
+
     public function invoices()
     {
         return $this->hasMany(Invoices::class , 'khach_hang_id');
