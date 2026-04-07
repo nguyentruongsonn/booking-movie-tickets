@@ -14,6 +14,20 @@ const VI_DAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 const DAY_PICKER_STYLE_ID = 'day-picker-style';
 const SHOWTIME_BUFFER_MS = 20 * 60 * 1000;
 
+function getCustomerToken() {
+    const token = localStorage.getItem('auth_token');
+    return token && token !== 'undefined' ? token : null;
+}
+
+function requireCustomerLogin() {
+    if (getCustomerToken()) {
+        return true;
+    }
+
+    $('#authModal').modal('show');
+    return false;
+}
+
 function getMovieListEndpoint(type) {
     if (type === MOVIE_TYPES.ALL) {
         return '/api/movies';
@@ -280,7 +294,7 @@ function renderShowtimesByFormat(showtimes, container) {
                     minute: '2-digit',
                     hour12: false
                 });
-                return `<a href="/bookings/${showtime.id}" class="showtime-btn">${time}</a>`;
+                return `<a href="/bookings/${showtime.id}" class="showtime-btn" data-showtime-id="${showtime.id}">${time}</a>`;
             })
             .join('');
 
@@ -297,6 +311,21 @@ function renderShowtimesByFormat(showtimes, container) {
     }).join('');
 
     container.innerHTML = html || `<p class="text-muted mt-3">Không còn suất chiếu phù hợp trong ngày này.</p>`;
+}
+
+function setupShowtimeAuthGuard() {
+    document.addEventListener('click', function (event) {
+        const showtimeButton = event.target.closest('.showtime-btn');
+        if (!showtimeButton) {
+            return;
+        }
+
+        if (requireCustomerLogin()) {
+            return;
+        }
+
+        event.preventDefault();
+    });
 }
 
 function setupWeeklyDatePicker(showtimes) {
@@ -449,6 +478,8 @@ async function fetchMovieDetail() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    setupShowtimeAuthGuard();
+
     if (document.getElementById('movie-list-container')) {
         loadMovies(MOVIE_TYPES.NOW_SHOWING);
     }

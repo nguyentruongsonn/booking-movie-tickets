@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             ShowtimeSeeder::class ,
             PromotionSeeder::class,
             CustomerPromotionSeeder::class,
+            ProductSeeder::class
         ]);
     }
 }

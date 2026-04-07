@@ -14,9 +14,13 @@ return new class extends Migration
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
             $table->string('ma_don_hang')->unique();
-            $table->foreignId('customer_id')->constrained('customers');
-            $table->decimal('tong_tien',10,2);
-            $table->enum('trang_thai', ['pending', 'paid', 'cancelled'])->default('pending');
+            $table->bigInteger('order_code')->unique();
+            $table->foreignId('customer_id')->constrained('customers')->onDelete('cascade');
+            $table->foreignId('suat_chieu_id')->constrained('showtimes')->onDelete('cascade');
+            $table->decimal('tong_tien', 15, 2);
+            $table->json('payload')->nullable();
+            $table->enum('trang_thai', ['pending', 'paid', 'cancelled', 'expired'])->default('pending');
+
             $table->timestamps();
         });
     }

@@ -76,6 +76,16 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="card shadow-sm p-4 border-0 mb-4" id="card-confirm" style="border-radius:15px; display:none;">
+                    <div id="payment-success-content" class="d-none">
+
+                    </div>
+
+                    <div id="payment-cancel-content" class="d-none">
+
+                    </div>
+                </div>
             </div>
 
             <div class="col-md-4">

@@ -26,11 +26,13 @@ Route::prefix('auth')->group(function () {
 
 Route::get('/showtimes/{showtime}', [BookingApiController::class, 'showShowtime']);
 Route::get('/products', [BookingApiController::class, 'indexProducts']);
-Route::post('/payments', [PaymentController::class, 'createPayment']);
+Route::post('/payos/webhook', [PaymentController::class, 'handleWebhook']);
 
-Route::middleware('auth:api')->group(function () {
+Route::middleware('customer')->group(function () {
     Route::post('/showtimes/{showtime}/seat-holds', [BookingApiController::class, 'storeSeatHold']);
     Route::get('/customers/me/vouchers', [BookingApiController::class, 'indexMyVouchers']);
     Route::get('/customers/me/loyalty-points', [BookingApiController::class, 'showMyLoyaltyPoints']);
     Route::post('/promotions/validate', [BookingApiController::class, 'validatePromotion']);
+    Route::post('/payments', [PaymentController::class, 'createPayment']);
+    Route::get('/payments/orders/{orderCode}', [PaymentController::class, 'showOrderSummary']);
 });

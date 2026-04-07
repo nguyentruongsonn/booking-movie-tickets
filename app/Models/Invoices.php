@@ -4,16 +4,17 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class HoaDon extends Model
+class Invoices extends Model
 {
-    protected $table = 'hoa_don';
+    protected $table = 'invoices';
 
     protected $fillable = [
         'ma_hoa_don',
+        'order_id',
         'khach_hang_id',
         'nhan_vien_id',
         'khuyen_mai_id',
-        'lich_chieu_id',
+        'suat_chieu_id',
         'ngay_lap',
         'tong_tien_goc',
         'giam_gia',
@@ -38,6 +39,11 @@ class HoaDon extends Model
         return $this->belongsTo(Customers::class, 'khach_hang_id');
     }
 
+    public function order()
+    {
+        return $this->belongsTo(Orders::class, 'order_id');
+    }
+
     public function employee()
     {
         return $this->belongsTo(Employees::class, 'nhan_vien_id');
@@ -46,6 +52,11 @@ class HoaDon extends Model
     public function promotion()
     {
         return $this->belongsTo(Promotions::class, 'khuyen_mai_id');
+    }
+
+    public function showtime()
+    {
+        return $this->belongsTo(Showtimes::class, 'suat_chieu_id');
     }
 
     public function invoiceDetails()

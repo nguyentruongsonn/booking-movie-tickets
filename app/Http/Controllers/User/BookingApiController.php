@@ -20,7 +20,7 @@ class BookingApiController extends Controller
 
         $bookedSeats = Tickets::query()
             ->where('suat_chieu_id', $showtime->id)
-            ->where('trang_thai', '!=', 'da_huy')
+                ->where('trang_thai', '!=', 'cancelled')
             ->pluck('ghe_id')
             ->toArray();
 
@@ -81,7 +81,7 @@ class BookingApiController extends Controller
         $isBooked = Tickets::query()
             ->where('suat_chieu_id', $showtime->id)
             ->where('ghe_id', $seat->id)
-            ->where('trang_thai', '!=', 'da_huy')
+            ->where('trang_thai', '!=', 'cancelled')
             ->exists();
 
         if ($isBooked) {

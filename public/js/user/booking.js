@@ -1,6 +1,9 @@
 document.addEventListener('DOMContentLoaded', function () {
     const pathSegments = window.location.pathname.split('/');
     const showtimeId = pathSegments.filter(Boolean).pop();
+    const queryParams = new URLSearchParams(window.location.search);
+    const paymentStatus = queryParams.get('paymentStatus');
+    const paymentOrderCode = queryParams.get('orderCode');
 
     if (!showtimeId || Number.isNaN(Number.parseInt(showtimeId, 10))) {
         console.error('ID suat chieu khong hop le');
@@ -14,9 +17,13 @@ document.addEventListener('DOMContentLoaded', function () {
         cardSeat: document.getElementById('card-seat'),
         cardProduct: document.getElementById('card-product'),
         cardPromotion: document.getElementById('card-promotion'),
+        cardConfirm: document.getElementById('card-confirm'),
+        paymentSuccess: document.getElementById('payment-success-content'),
+        paymentCancel: document.getElementById('payment-cancel-content'),
         chooseSeat: document.getElementById('choose-seat'),
         chooseProduct: document.getElementById('choose-product'),
         choosePromotion: document.getElementById('choose-promotion'),
+        chooseConfirm: document.getElementById('choose-confirm'),
         selectedSeatsList: document.getElementById('selected-seats-list'),
         selectedProductsList: document.getElementById('selected-products-list'),
         productMap: document.getElementById('product-map'),
@@ -65,6 +72,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const amount = Number(value);
         return Number.isFinite(amount) ? amount : 0;
     }
+
+
 
     function subscribeTokenRefresh(callback) {
         tokenRefreshSubscribers.push(callback);
@@ -287,6 +296,181 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function hideBookingFlowCards() {
+        if (dom.seatMap) dom.seatMap.style.display = 'none';
+        if (dom.cardSeat) dom.cardSeat.style.display = 'none';
+        if (dom.cardProduct) dom.cardProduct.style.display = 'none';
+        if (dom.cardPromotion) dom.cardPromotion.style.display = 'none';
+    }
+
+    function showConfirmStep() {
+        hideBookingFlowCards();
+        if (dom.cardConfirm) dom.cardConfirm.style.display = 'block';
+        if (dom.paymentSuccess) dom.paymentSuccess.classList.add('d-none');
+        if (dom.paymentCancel) dom.paymentCancel.classList.add('d-none');
+        if (dom.chooseConfirm) setActiveStep(dom.chooseConfirm);
+        if (dom.btnContinue) dom.btnContinue.style.display = 'none';
+        if (dom.btnBack) dom.btnBack.style.display = 'none';
+    }
+
+    function renderPaymentFailed(message) {
+        if (!dom.paymentCancel) {
+            return;
+        }
+
+        showConfirmStep();
+        dom.paymentCancel.innerHTML = `
+            <div class="text-center py-4">
+                <div class="mb-3 text-danger" style="font-size: 48px;">!</div>
+                <h4 class="fw-bold mb-2">Thanh toan that bai</h4>
+                <p class="text-muted mb-4">${message}</p>
+                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                    <a href="${getReturnDetailUrl()}" class="btn btn-outline-secondary rounded-pill px-4">Ve trang chi tiet phim</a>
+                    <button type="button" class="btn btn-warning text-white rounded-pill px-4" id="retry-payment-btn">Thu lai</button>
+                </div>
+            </div>
+        `;
+        dom.paymentCancel.classList.remove('d-none');
+
+        const retryButton = document.getElementById('retry-payment-btn');
+        if (retryButton) {
+            retryButton.addEventListener('click', function () {
+                dom.paymentCancel.classList.add('d-none');
+                if (dom.btnContinue) dom.btnContinue.style.display = '';
+                if (dom.btnBack) dom.btnBack.style.display = '';
+                showPromotionStep();
+            });
+        }
+    }
+
+    function renderPaymentSuccess(summary) {
+        if (!dom.paymentSuccess) {
+            return;
+        }
+
+        const invoice = summary.invoice || {};
+        const tickets = Array.isArray(summary.tickets) ? summary.tickets : [];
+        const products = Array.isArray(summary.products) ? summary.products : [];
+        const showtime = summary.showtime || {};
+
+        showConfirmStep();
+        dom.paymentSuccess.innerHTML = `
+            <div class="py-2">
+                <div class="mb-4">
+                    <p class="small text-success fw-bold mb-2">THANH TOAN THANH CONG</p>
+                    <h4 class="fw-bold mb-2">Dat ve thanh cong</h4>
+                    <p class="text-muted mb-0">Thong tin thanh toan va don hang cua ban da duoc cap nhat.</p>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <div class="border rounded-4 p-3 h-100">
+                            <div class="small text-muted mb-2">Don hang</div>
+                            <div class="fw-bold">${summary.ma_don_hang || 'Dang cap nhat'}</div>
+                            <div class="small text-muted mt-2">Order code: ${summary.order_code || ''}</div>
+                            <div class="small text-muted">Hoa don: ${invoice.ma_hoa_don || 'Dang cap nhat'}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="border rounded-4 p-3 h-100">
+                            <div class="small text-muted mb-2">Thong tin suat chieu</div>
+                            <div class="fw-bold">${showtime.movie_name || 'Dang cap nhat'}</div>
+                            <div class="small text-muted mt-2">Phong: ${showtime.room_name || 'Dang cap nhat'}</div>
+                            <div class="small text-muted">Thoi gian: ${showtime.ngay_gio_chieu ? new Date(showtime.ngay_gio_chieu).toLocaleString('vi-VN', { hour12: false }) : 'Dang cap nhat'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border rounded-4 p-3 mb-3">
+                    <div class="fw-bold mb-2">Ghe da dat</div>
+                    <div class="small text-muted">
+                        ${tickets.length
+                            ? tickets.map(ticket => `<div class="mb-1">${ticket.ghe} - ${ticket.ma_ve} - ${formatCurrency(ticket.gia_ban)}</div>`).join('')
+                            : 'Dang cap nhat thong tin ghe.'}
+                    </div>
+                </div>
+
+                <div class="border rounded-4 p-3 mb-3">
+                    <div class="fw-bold mb-2">San pham di kem</div>
+                    <div class="small text-muted">
+                        ${products.length
+                            ? products.map(product => `<div class="mb-1">${product.ten_san_pham} x${product.so_luong} - ${formatCurrency(product.don_gia)}</div>`).join('')
+                            : 'Khong co san pham di kem.'}
+                    </div>
+                </div>
+
+                <div class="border rounded-4 p-3 bg-light mb-4">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Tong tien goc</span>
+                        <strong>${formatCurrency(invoice.tong_tien_goc ?? summary.tong_tien)}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Giam gia</span>
+                        <strong>${formatCurrency(invoice.giam_gia ?? 0)}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Diem da dung</span>
+                        <strong>${invoice.diem_su_dung ?? 0}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Diem tich luy moi</span>
+                        <strong>${invoice.diem_tich_luy ?? 0}</strong>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-bold">Tong thanh toan</span>
+                        <strong class="text-success">${formatCurrency(invoice.tong_tien ?? summary.tong_tien)}</strong>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="/" class="btn btn-dark rounded-pill px-4">Ve trang chu</a>
+                    <a href="${getReturnDetailUrl()}" class="btn btn-outline-secondary rounded-pill px-4">Ve trang chi tiet phim</a>
+                </div>
+            </div>
+        `;
+        dom.paymentSuccess.classList.remove('d-none');
+    }
+
+    async function loadPaymentConfirmation(orderCode) {
+        if (!orderCode) {
+            renderPaymentFailed('Khong tim thay thong tin giao dich.');
+            return;
+        }
+
+        showConfirmStep();
+        if (dom.paymentSuccess) {
+            dom.paymentSuccess.innerHTML = '<div class="text-muted">Dang xac nhan thanh toan va cap nhat du lieu...</div>';
+            dom.paymentSuccess.classList.remove('d-none');
+        }
+
+        for (let attempt = 0; attempt < 8; attempt += 1) {
+            try {
+                const response = await apiFetch(`/payments/orders/${orderCode}`);
+                const result = await response.json().catch(() => ({}));
+
+                if (!response.ok || result.status !== 'success') {
+                    throw new Error(result.message || 'Khong the tai thong tin don hang');
+                }
+
+                if (result.data?.trang_thai === 'paid' && result.data?.invoice) {
+                    clearBookingStorage();
+                    renderPaymentSuccess(result.data);
+                    return;
+                }
+            } catch (error) {
+                if (attempt === 7) {
+                    renderPaymentFailed(error.message || 'Khong the xac nhan thanh toan.');
+                    return;
+                }
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+
+        renderPaymentFailed('He thong chua kip cap nhat ket qua thanh toan. Vui long thu lai sau.');
+    }
+
     function renderSelectedSeatsList() {
         if (!dom.selectedSeatsList) {
             return;
@@ -433,6 +617,8 @@ document.addEventListener('DOMContentLoaded', function () {
     async function handlePayment() {
         const subtotal = getSubtotal();
         const amount = Math.max(0, subtotal - getTotalDiscount(subtotal));
+        const seats = Array.from(selectedSeats.values());
+        const products = Array.from(selectedProducts.values());
 
         try {
             const response = await apiFetch('/payments', {
@@ -441,7 +627,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': dom.csrfToken
                 },
-                body: JSON.stringify({ amount })
+                body: JSON.stringify({
+                    amount,
+                    suat_chieu_id: Number(showtimeId),
+                    seats,
+                    products,
+                    voucher_id: bookingDiscount.selectedVoucher?.id || null,
+                    point_used: bookingDiscount.pointAmount || 0,
+                    discount_amount: getTotalDiscount(subtotal)
+                })
             });
             const result = await response.json();
 
@@ -874,6 +1068,16 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     async function init() {
+        if (paymentStatus === 'success') {
+            await loadPaymentConfirmation(paymentOrderCode);
+            return;
+        }
+
+        if (paymentStatus === 'cancelled') {
+            renderPaymentFailed('Giao dich da bi huy hoac thanh toan chua thanh cong.');
+            return;
+        }
+
         restoreSavedSeats();
         setupPromotionEvent();
         restoreHoldExpiration();

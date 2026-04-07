@@ -17,7 +17,7 @@ class Showtimes extends Model
         'trang_thai'
     ];
     protected $appends = ['gio_chieu', 'ngay_chieu'];
-    
+
     protected $casts = [
         'gia' => 'decimal:2',
         'ngay_gio_chieu' => 'datetime',
@@ -29,6 +29,10 @@ class Showtimes extends Model
     public function room()
     {
         return $this->belongsTo(Rooms::class,'room_id');
+    }
+    public function orders()
+    {
+        return $this->hasMany(Orders::class,'suat_chieu_id');
     }
     public function format()
     {
@@ -44,12 +48,12 @@ class Showtimes extends Model
     }
     public function tickets()
     {
-        return $this->hasMany(Tickets::class, 'lich_chieu_id');
+        return $this->hasMany(Tickets::class, 'suat_chieu_id');
     }
 
     public function getSoGheConTrongAttribute()
     {
-        $tongGhe = $this->tickets()->where('trang_thai','!=','da_huy')->count();
+        $tongGhe = $this->tickets()->where('trang_thai', '!=', 'cancelled')->count();
         return $this->room->suc_chua - $tongGhe;
     }
 
