@@ -35,7 +35,14 @@ class Promotions extends Model
 
     public function hoaDons()
     {
-        return $this->hasMany(HoaDon::class, 'khuyen_mai_id');
+        return $this->hasMany(Invoices::class, 'khuyen_mai_id');
+    }
+
+    public function customers()
+    {
+        return $this->belongsToMany(Customers::class, 'customer_promotion', 'promotion_id', 'customer_id')
+            ->withPivot('trang_thai', 'so_lan_da_dung', 'ngay_su_dung', 'order_id', 'invoice_id', 'gia_tri_giam')
+            ->withTimestamps();
     }
 
     public function isValid()

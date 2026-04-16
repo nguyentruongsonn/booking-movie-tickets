@@ -11,6 +11,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     const dom = {
+        btnRegisterCoupon: document.getElementById('btn-register-coupon'),
+        passwordCoupon: document.getElementById('password-coupon'),
+        registeredCoupon: document.getElementById('registered-coupon'),
+        appliedCoupon: document.getElementById('applied-coupon'),
         btnContinue: document.getElementById('btn-continue'),
         btnBack: document.getElementById('btn-back'),
         seatMap: document.getElementById('seat-map'),
@@ -27,9 +31,9 @@ document.addEventListener('DOMContentLoaded', function () {
         selectedSeatsList: document.getElementById('selected-seats-list'),
         selectedProductsList: document.getElementById('selected-products-list'),
         productMap: document.getElementById('product-map'),
-        formUserPromotions: document.getElementById('form-user-promotions'),
         couponCodeInput: document.getElementById('coupon-code-input'),
         pointStart: document.getElementById('points-start'),
+        couponMessage: document.getElementById('coupon-message'),
         totalPrice: document.getElementById('total-price'),
         movieName: document.getElementById('book-movie-name'),
         poster: document.getElementById('book-poster'),
@@ -42,9 +46,9 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     const bookingDiscount = {
+        promoId: null,
         promoCode: null,
         promoValue: 0,
-        selectedVoucher: null,
         pointAmount: 0
     };
 
@@ -71,6 +75,267 @@ document.addEventListener('DOMContentLoaded', function () {
     function toAmount(value) {
         const amount = Number(value);
         return Number.isFinite(amount) ? amount : 0;
+    }
+
+    function createElement(tagName, options = {}, children = []) {
+        const element = document.createElement(tagName);
+
+        if (options.className) {
+            element.className = options.className;
+        }
+
+        if (options.text !== undefined) {
+            element.textContent = options.text;
+        }
+
+        if (options.attributes) {
+            Object.entries(options.attributes).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    element.setAttribute(key, String(value));
+                }
+            });
+        }
+
+        if (options.dataset) {
+            Object.entries(options.dataset).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    element.dataset[key] = String(value);
+                }
+            });
+        }
+
+        children
+            .filter(Boolean)
+            .forEach(child => element.append(child));
+
+        return element;
+    }
+
+    function replaceContent(target, children = []) {
+        if (!target) {
+            return;
+        }
+
+        target.replaceChildren(...children.filter(Boolean));
+    }
+
+    function createInfoLine(label, value, valueClassName = '') {
+        return createElement('div', { className: 'small text-muted mt-2' }, [
+            document.createTextNode(`${label}: `),
+            createElement('span', {
+                className: valueClassName,
+                text: value
+            })
+        ]);
+    }
+
+    function createSummaryRow(label, value, options = {}) {
+        const row = createElement('div', {
+            className: `d-flex justify-content-between ${options.className || ''}`.trim()
+        }, [
+            createElement('span', { className: options.labelClassName || '', text: label }),
+            createElement('strong', { className: options.valueClassName || '', text: value })
+        ]);
+
+        return row;
+    }
+
+    function createEmptyText(text) {
+        return createElement('div', {
+            className: 'small text-muted',
+            text
+        });
+    }
+
+    function createDetailItem(text) {
+        return createElement('div', {
+            className: 'mb-1',
+            text
+        });
+    }
+
+    function createSectionCard(title, bodyChildren = [], className = 'border rounded-4 p-3 mb-3') {
+        const children = title
+            ? [createElement('div', { className: 'fw-bold mb-2', text: title }), ...bodyChildren]
+            : bodyChildren;
+
+        return createElement('div', { className }, children);
+    }
+
+    function createSummaryInfoCard(title, lines = []) {
+        return createElement('div', { className: 'border rounded-4 p-3 h-100' }, [
+            createElement('div', { className: 'small text-muted mb-2', text: title }),
+            ...lines
+        ]);
+    }
+
+    function createActionLinkButton(href, text, className) {
+        return createElement('a', {
+            className,
+            text,
+            attributes: { href }
+        });
+    }
+
+    function createActionButton(id, text, className, type = 'button', attributes = {}) {
+        return createElement('button', {
+            className,
+            text,
+            attributes: { id, type, ...attributes }
+        });
+    }
+
+    function formatPromotionExpiry(value) {
+        if (!value) {
+            return '-';
+        }
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return '-';
+        }
+
+        return date.toLocaleDateString('vi-VN');
+    }
+
+    function renderAppliedCouponStatus() {
+        if (!dom.appliedCoupon) {
+            return;
+        }
+
+        if (!bookingDiscount.promoCode) {
+            replaceContent(dom.appliedCoupon);
+            return;
+        }
+
+        replaceContent(dom.appliedCoupon, [
+            createElement('div', {
+                className: 'small text-primary',
+                text: `Ma dang ap dung: ${bookingDiscount.promoCode}`
+            })
+        ]);
+    }
+
+    function clearAppliedCoupon() {
+        bookingDiscount.promoId = null;
+        bookingDiscount.promoCode = null;
+        bookingDiscount.promoValue = 0;
+        replaceContent(dom.couponMessage);
+        renderAppliedCouponStatus();
+        updateTotalPrice();
+    }
+
+    function createRegisteredVoucherRow(voucher) {
+        const isApplied = bookingDiscount.promoCode === voucher.code;
+        const actionClassName = isApplied
+            ? 'btn btn-sm btn-outline-danger registered-voucher-toggle'
+            : 'btn btn-sm btn-outline-primary registered-voucher-toggle';
+
+        return createElement('tr', {}, [
+            createElement('td', { className: 'fw-semibold text-dark', text: voucher.code }),
+            createElement('td', { text: voucher.name || '-' }),
+            createElement('td', { text: formatPromotionExpiry(voucher.expires_at) }),
+            createElement('td', { className: 'text-center' }, [
+                createActionButton(null, isApplied ? 'Huy' : 'Ap dung', actionClassName, 'button', {
+                    'data-code': voucher.code,
+                    'data-action': isApplied ? 'cancel' : 'apply'
+                })
+            ])
+        ]);
+    }
+
+    function setRegisteredCouponState(text, className = 'small text-muted') {
+        replaceContent(dom.registeredCoupon, [
+            createElement('tr', {}, [
+                createElement('td', {
+                    className,
+                    text,
+                    attributes: {
+                        colspan: 4
+                    }
+                })
+            ])
+        ]);
+    }
+
+    function createProductCard(product) {
+        const productId = Number(product.id);
+        const quantity = selectedProducts.get(productId)?.qty || 0;
+
+        return createElement('div', { className: 'col-md-12 mb-3' }, [
+            createElement('div', { className: 'product-card d-flex align-items-center p-3 border rounded-4 bg-white shadow-sm' }, [
+                createElement('div', { className: 'product-img me-3 mr-3' }, [
+                    createElement('img', {
+                        className: 'rounded-3 shadow-sm',
+                        attributes: {
+                            src: `/storage/${product.hinh_anh_url}`,
+                            alt: product.ten_san_pham,
+                            style: 'width: 80px; height: 80px; object-fit: cover;'
+                        }
+                    })
+                ]),
+                createElement('div', { className: 'flex-grow-1' }, [
+                    createElement('h6', { className: 'mb-1 fw-bold text-dark', text: product.ten_san_pham }),
+                    createElement('p', { className: 'text-primary fw-bold mb-0', text: formatCurrency(Number(product.gia_ban)) })
+                ]),
+                createElement('div', { className: 'quantity-controls d-flex align-items-center gap-3 bg-light rounded-pill p-1 px-2' }, [
+                    createActionButton(null, '-', 'btn btn-sm btn-white rounded-circle shadow-sm p-0 product-qty-btn', 'button', {
+                        'data-id': productId,
+                        'data-delta': -1,
+                        style: 'width: 28px; height: 28px; line-height: 28px;'
+                    }),
+                    createElement('span', {
+                        className: 'fw-bold',
+                        text: quantity,
+                        attributes: {
+                            id: `qty-${productId}`,
+                            style: 'min-width:20px; text-align:center;'
+                        }
+                    }),
+                    createActionButton(null, '+', 'btn btn-sm btn-warning text-white rounded-circle shadow-sm p-0 product-qty-btn', 'button', {
+                        'data-id': productId,
+                        'data-delta': 1,
+                        style: 'width: 28px; height: 28px; line-height: 28px;'
+                    })
+                ])
+            ])
+        ]);
+    }
+
+    function createSeatElement(row, seat) {
+        const seatId = String(seat.id);
+        const isBooked = Boolean(seat.is_booked);
+        const seatEl = createElement('div', {
+            className: `seat ${isBooked ? 'booked' : 'available'}`,
+            text: seat.so_ghe,
+            dataset: {
+                id: seatId,
+                name: `${row}${seat.so_ghe}`,
+                price: toAmount(seat.gia_ghe)
+            }
+        });
+
+        if (selectedSeats.has(seatId)) {
+            seatEl.classList.add('selected');
+        }
+
+        return seatEl;
+    }
+
+    function createSeatRow(row, seats) {
+        const seatItems = [...seats].sort((a, b) => Number(a.so_ghe) - Number(b.so_ghe));
+        const rowLabel = () => createElement('div', {
+            className: 'row-label fw-bold small text-muted',
+            text: row
+        });
+
+        return createElement('div', {
+            className: 'd-flex justify-content-center align-items-center w-100 gap-2 mb-2'
+        }, [
+            rowLabel(),
+            ...seatItems.map(seat => createSeatElement(row, seat)),
+            rowLabel()
+        ]);
     }
 
 
@@ -156,19 +421,9 @@ document.addEventListener('DOMContentLoaded', function () {
         return totalSeatPrice + totalProductPrice;
     }
 
-    function getVoucherDiscount(subtotal) {
-        if (!bookingDiscount.selectedVoucher) {
-            return 0;
-        }
-
-        const voucher = bookingDiscount.selectedVoucher;
-        return voucher.type === 'phan_tram'
-            ? (subtotal * voucher.value) / 100
-            : voucher.value;
-    }
-
     function getTotalDiscount(subtotal) {
-        return getVoucherDiscount(subtotal) + bookingDiscount.pointAmount + bookingDiscount.promoValue;
+        const total = bookingDiscount.pointAmount + bookingDiscount.promoValue;
+        return Math.min(total, subtotal);
     }
 
     function getBookingStorageKey(name) {
@@ -176,8 +431,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function clearBookingStorage() {
-        localStorage.removeItem('selected_seats');
-        localStorage.removeItem('booking_step');
+        localStorage.removeItem(getBookingStorageKey('selected_seats'));
+        localStorage.removeItem(getBookingStorageKey('booking_step'));
         localStorage.removeItem(getBookingStorageKey('hold_expires_at'));
         localStorage.removeItem(getBookingStorageKey('return_url'));
     }
@@ -189,9 +444,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         totalSeatPrice = 0;
         totalProductPrice = 0;
+        bookingDiscount.promoId = null;
         bookingDiscount.promoCode = null;
         bookingDiscount.promoValue = 0;
-        bookingDiscount.selectedVoucher = null;
         bookingDiscount.pointAmount = 0;
 
         if (holdExpirationTimeoutId) {
@@ -207,18 +462,8 @@ document.addEventListener('DOMContentLoaded', function () {
             dom.pointStart.value = '';
         }
 
-        const couponMessage = document.getElementById('coupon-message');
-        if (couponMessage) {
-            couponMessage.innerHTML = '';
-        }
-
-        if (dom.formUserPromotions) {
-            dom.formUserPromotions
-                .querySelectorAll('input[name="user-voucher"]')
-                .forEach(input => {
-                    input.checked = false;
-                });
-        }
+        replaceContent(dom.couponMessage);
+        renderAppliedCouponStatus();
 
         renderSelectedSeatsList();
         renderSelectedProductsSidebar();
@@ -265,7 +510,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         holdExpirationTimeoutId = window.setTimeout(function () {
-            alert('Het 10 phut giu ghe. He thong se dua ban ve trang chi tiet.');
             expireBookingSession();
         }, delay);
     }
@@ -280,7 +524,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function saveSelectedSeats() {
-        localStorage.setItem('selected_seats', JSON.stringify(Array.from(selectedSeats.values())));
+        localStorage.setItem(getBookingStorageKey('selected_seats'), JSON.stringify(Array.from(selectedSeats.values())));
     }
 
     function setActiveStep(activeElement) {
@@ -319,17 +563,29 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         showConfirmStep();
-        dom.paymentCancel.innerHTML = `
-            <div class="text-center py-4">
-                <div class="mb-3 text-danger" style="font-size: 48px;">!</div>
-                <h4 class="fw-bold mb-2">Thanh toan that bai</h4>
-                <p class="text-muted mb-4">${message}</p>
-                <div class="d-flex justify-content-center gap-2 flex-wrap">
-                    <a href="${getReturnDetailUrl()}" class="btn btn-outline-secondary rounded-pill px-4">Ve trang chi tiet phim</a>
-                    <button type="button" class="btn btn-warning text-white rounded-pill px-4" id="retry-payment-btn">Thu lai</button>
-                </div>
-            </div>
-        `;
+        replaceContent(dom.paymentCancel, [
+            createElement('div', { className: 'text-center py-4' }, [
+                createElement('div', {
+                    className: 'mb-3 text-danger',
+                    text: '!',
+                    attributes: { style: 'font-size: 48px;' }
+                }),
+                createElement('h4', { className: 'fw-bold mb-2', text: 'Thanh toan that bai' }),
+                createElement('p', { className: 'text-muted mb-4', text: message }),
+                createElement('div', { className: 'd-flex justify-content-center gap-2 flex-wrap' }, [
+                    createActionLinkButton(
+                        getReturnDetailUrl(),
+                        'Ve trang chi tiet phim',
+                        'btn btn-outline-secondary rounded-pill px-4'
+                    ),
+                    createActionButton(
+                        'retry-payment-btn',
+                        'Thu lai',
+                        'btn btn-warning text-white rounded-pill px-4'
+                    )
+                ])
+            ])
+        ]);
         dom.paymentCancel.classList.remove('d-none');
 
         const retryButton = document.getElementById('retry-payment-btn');
@@ -353,82 +609,75 @@ document.addEventListener('DOMContentLoaded', function () {
         const products = Array.isArray(summary.products) ? summary.products : [];
         const showtime = summary.showtime || {};
 
+        const orderInfoColumn = createElement('div', { className: 'col-md-6' }, [
+            createSummaryInfoCard('Don hang', [
+                createElement('div', { className: 'fw-bold', text: summary.ma_don_hang || 'Dang cap nhat' }),
+                createInfoLine('Order code', summary.order_code || ''),
+                createInfoLine('Hoa don', invoice.ma_hoa_don || 'Dang cap nhat')
+            ])
+        ]);
+
+        const showtimeInfoColumn = createElement('div', { className: 'col-md-6' }, [
+            createSummaryInfoCard('Thong tin suat chieu', [
+                createElement('div', { className: 'fw-bold', text: showtime.movie_name || 'Dang cap nhat' }),
+                createInfoLine('Phong', showtime.room_name || 'Dang cap nhat'),
+                createInfoLine(
+                    'Thoi gian',
+                    showtime.ngay_gio_chieu
+                        ? new Date(showtime.ngay_gio_chieu).toLocaleString('vi-VN', { hour12: false })
+                        : 'Dang cap nhat'
+                )
+            ])
+        ]);
+
+        const ticketChildren = tickets.length
+            ? tickets.map(ticket => createDetailItem(`${ticket.ghe} - ${ticket.ma_ve} - ${formatCurrency(ticket.gia_ban)}`))
+            : [createEmptyText('Dang cap nhat thong tin ghe.')];
+
+        const productChildren = products.length
+            ? products.map(product => createDetailItem(`${product.ten_san_pham} x${product.so_luong} - ${formatCurrency(product.don_gia)}`))
+            : [createEmptyText('Khong co san pham di kem.')];
+
+        const totalSummaryCard = createSectionCard('', [
+            createSummaryRow('Tong tien goc', formatCurrency(invoice.tong_tien_goc ?? summary.tong_tien), { className: 'mb-2' }),
+            createSummaryRow('Giam gia', formatCurrency(invoice.giam_gia ?? 0), { className: 'mb-2' }),
+            createSummaryRow('Diem da dung', String(invoice.diem_su_dung ?? 0), { className: 'mb-2' }),
+            createSummaryRow('Diem tich luy moi', String(invoice.diem_tich_luy ?? 0), { className: 'mb-2' }),
+            createElement('hr'),
+            createSummaryRow('Tong thanh toan', formatCurrency(invoice.tong_tien ?? summary.tong_tien), {
+                labelClassName: 'fw-bold',
+                valueClassName: 'text-success'
+            })
+        ], 'border rounded-4 p-3 bg-light mb-4');
+
         showConfirmStep();
-        dom.paymentSuccess.innerHTML = `
-            <div class="py-2">
-                <div class="mb-4">
-                    <p class="small text-success fw-bold mb-2">THANH TOAN THANH CONG</p>
-                    <h4 class="fw-bold mb-2">Dat ve thanh cong</h4>
-                    <p class="text-muted mb-0">Thong tin thanh toan va don hang cua ban da duoc cap nhat.</p>
-                </div>
-
-                <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        <div class="border rounded-4 p-3 h-100">
-                            <div class="small text-muted mb-2">Don hang</div>
-                            <div class="fw-bold">${summary.ma_don_hang || 'Dang cap nhat'}</div>
-                            <div class="small text-muted mt-2">Order code: ${summary.order_code || ''}</div>
-                            <div class="small text-muted">Hoa don: ${invoice.ma_hoa_don || 'Dang cap nhat'}</div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="border rounded-4 p-3 h-100">
-                            <div class="small text-muted mb-2">Thong tin suat chieu</div>
-                            <div class="fw-bold">${showtime.movie_name || 'Dang cap nhat'}</div>
-                            <div class="small text-muted mt-2">Phong: ${showtime.room_name || 'Dang cap nhat'}</div>
-                            <div class="small text-muted">Thoi gian: ${showtime.ngay_gio_chieu ? new Date(showtime.ngay_gio_chieu).toLocaleString('vi-VN', { hour12: false }) : 'Dang cap nhat'}</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="border rounded-4 p-3 mb-3">
-                    <div class="fw-bold mb-2">Ghe da dat</div>
-                    <div class="small text-muted">
-                        ${tickets.length
-                            ? tickets.map(ticket => `<div class="mb-1">${ticket.ghe} - ${ticket.ma_ve} - ${formatCurrency(ticket.gia_ban)}</div>`).join('')
-                            : 'Dang cap nhat thong tin ghe.'}
-                    </div>
-                </div>
-
-                <div class="border rounded-4 p-3 mb-3">
-                    <div class="fw-bold mb-2">San pham di kem</div>
-                    <div class="small text-muted">
-                        ${products.length
-                            ? products.map(product => `<div class="mb-1">${product.ten_san_pham} x${product.so_luong} - ${formatCurrency(product.don_gia)}</div>`).join('')
-                            : 'Khong co san pham di kem.'}
-                    </div>
-                </div>
-
-                <div class="border rounded-4 p-3 bg-light mb-4">
-                    <div class="d-flex justify-content-between mb-2">
-                        <span>Tong tien goc</span>
-                        <strong>${formatCurrency(invoice.tong_tien_goc ?? summary.tong_tien)}</strong>
-                    </div>
-                    <div class="d-flex justify-content-between mb-2">
-                        <span>Giam gia</span>
-                        <strong>${formatCurrency(invoice.giam_gia ?? 0)}</strong>
-                    </div>
-                    <div class="d-flex justify-content-between mb-2">
-                        <span>Diem da dung</span>
-                        <strong>${invoice.diem_su_dung ?? 0}</strong>
-                    </div>
-                    <div class="d-flex justify-content-between mb-2">
-                        <span>Diem tich luy moi</span>
-                        <strong>${invoice.diem_tich_luy ?? 0}</strong>
-                    </div>
-                    <hr>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="fw-bold">Tong thanh toan</span>
-                        <strong class="text-success">${formatCurrency(invoice.tong_tien ?? summary.tong_tien)}</strong>
-                    </div>
-                </div>
-
-                <div class="d-flex gap-2 flex-wrap">
-                    <a href="/" class="btn btn-dark rounded-pill px-4">Ve trang chu</a>
-                    <a href="${getReturnDetailUrl()}" class="btn btn-outline-secondary rounded-pill px-4">Ve trang chi tiet phim</a>
-                </div>
-            </div>
-        `;
+        replaceContent(dom.paymentSuccess, [
+            createElement('div', { className: 'py-2' }, [
+                createElement('div', { className: 'mb-4' }, [
+                    createElement('p', { className: 'small text-success fw-bold mb-2', text: 'THANH TOAN THANH CONG' }),
+                    createElement('h4', { className: 'fw-bold mb-2', text: 'Dat ve thanh cong' }),
+                    createElement('p', {
+                        className: 'text-muted mb-0',
+                        text: 'Thong tin thanh toan va don hang cua ban da duoc cap nhat.'
+                    })
+                ]),
+                createElement('div', { className: 'row g-3 mb-4' }, [
+                    orderInfoColumn,
+                    showtimeInfoColumn
+                ]),
+                createSectionCard('Ghe da dat', ticketChildren),
+                createSectionCard('San pham di kem', productChildren),
+                totalSummaryCard,
+                createElement('div', { className: 'd-flex gap-2 flex-wrap' }, [
+                    createActionLinkButton('/', 'Ve trang chu', 'btn btn-dark rounded-pill px-4'),
+                    createActionLinkButton(
+                        getReturnDetailUrl(),
+                        'Ve trang chi tiet phim',
+                        'btn btn-outline-secondary rounded-pill px-4'
+                    )
+                ])
+            ])
+        ]);
         dom.paymentSuccess.classList.remove('d-none');
     }
 
@@ -440,7 +689,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
         showConfirmStep();
         if (dom.paymentSuccess) {
-            dom.paymentSuccess.innerHTML = '<div class="text-muted">Dang xac nhan thanh toan va cap nhat du lieu...</div>';
+            replaceContent(dom.paymentSuccess, [
+                createElement('div', {
+                    className: 'text-muted',
+                    text: 'Dang xac nhan thanh toan va cap nhat du lieu...'
+                })
+            ]);
             dom.paymentSuccess.classList.remove('d-none');
         }
 
@@ -482,7 +736,10 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const names = Array.from(selectedSeats.values(), seat => seat.name).join(', ');
-        dom.selectedSeatsList.innerHTML = `Ghe: <span class="text-dark">${names}</span>`;
+        replaceContent(dom.selectedSeatsList, [
+            document.createTextNode('Ghe: '),
+            createElement('span', { className: 'text-dark', text: names })
+        ]);
     }
 
     function renderSelectedProductsSidebar() {
@@ -491,16 +748,19 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (selectedProducts.size === 0) {
-            dom.selectedProductsList.innerHTML = '';
+            replaceContent(dom.selectedProductsList);
             return;
         }
 
-        dom.selectedProductsList.innerHTML = Array.from(selectedProducts.values(), product => `
-            <div class="d-flex justify-content-between align-items-center mb-1">
-                <span>${product.qty}x ${product.name}</span>
-                <span class="fw-bold">${formatCurrency(product.price * product.qty)}</span>
-            </div>
-        `).join('');
+        replaceContent(dom.selectedProductsList, Array.from(selectedProducts.values(), product => (
+            createElement('div', { className: 'd-flex justify-content-between align-items-center mb-1' }, [
+                createElement('span', { text: `${product.qty}x ${product.name}` }),
+                createElement('span', {
+                    className: 'fw-bold',
+                    text: formatCurrency(product.price * product.qty)
+                })
+            ])
+        )));
     }
 
     async function refreshSeatHolds() {
@@ -538,28 +798,23 @@ document.addEventListener('DOMContentLoaded', function () {
         return true;
     }
 
+    //Lấy dữ liệu khuyến mãi từ server
     async function preloadPromotionData() {
         if (promotionCache) {
             return promotionCache;
         }
 
-        const [voucherRes, memberRes] = await Promise.all([
-            apiFetch('/customers/me/vouchers'),
-            apiFetch('/customers/me/loyalty-points')
-        ]);
-
-        const voucherData = await voucherRes.json().catch(() => ({ status: 'error', data: [] }));
+        const memberRes = await apiFetch('/customers/me/loyalty-points');
         const memberData = await memberRes.json().catch(() => ({ status: 'error', data: { points: 0 } }));
 
         promotionCache = {
-            vouchers: voucherRes.ok && voucherData.status === 'success' ? voucherData.data : [],
             memberInfo: memberRes.ok && memberData.status === 'success' ? memberData.data : { points: 0 }
         };
 
         return promotionCache;
     }
 
-    function updateProductQuantity(productId, delta) {
+    async function updateProductQuantity(productId, delta) {
         const item = selectedProducts.get(productId);
 
         if (!item) {
@@ -596,6 +851,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         updateTotalPrice();
         renderSelectedProductsSidebar();
+        if (bookingDiscount.promoCode) {
+        await handleApplyCouponCode(bookingDiscount.promoCode);
+    }
     }
 
     function showSeatStep() {
@@ -611,14 +869,17 @@ document.addEventListener('DOMContentLoaded', function () {
             dom.btnContinue.classList.add('btn-warning');
         }
 
-        localStorage.setItem('booking_step', 'seats');
+        localStorage.setItem(getBookingStorageKey('booking_step'), 'seats');
     }
 
     async function handlePayment() {
-        const subtotal = getSubtotal();
-        const amount = Math.max(0, subtotal - getTotalDiscount(subtotal));
-        const seats = Array.from(selectedSeats.values());
-        const products = Array.from(selectedProducts.values());
+        const seats = Array.from(selectedSeats.values(), seat => ({
+            id: Number(seat.id)
+        }));
+        const products = Array.from(selectedProducts.values(), product => ({
+            id: Number(product.id),
+            qty: Number(product.qty)
+        }));
 
         try {
             const response = await apiFetch('/payments', {
@@ -628,13 +889,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     'X-CSRF-TOKEN': dom.csrfToken
                 },
                 body: JSON.stringify({
-                    amount,
                     suat_chieu_id: Number(showtimeId),
                     seats,
                     products,
-                    voucher_id: bookingDiscount.selectedVoucher?.id || null,
-                    point_used: bookingDiscount.pointAmount || 0,
-                    discount_amount: getTotalDiscount(subtotal)
+                    voucher_id: bookingDiscount.promoId || null,
+                    point_used: bookingDiscount.pointAmount || 0
                 })
             });
             const result = await response.json();
@@ -673,7 +932,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (dom.chooseProduct) setActiveStep(dom.chooseProduct);
             if (dom.btnContinue) dom.btnContinue.innerText = 'Tiep tuc';
 
-            localStorage.setItem('booking_step', 'products');
+            localStorage.setItem(getBookingStorageKey('booking_step'), 'products');
             preloadPromotionData().catch(() => {
                 promotionCache = null;
             });
@@ -682,6 +941,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    //Ẩn các phần giao diện khác
     function showPromotionStepLayout() {
         if (dom.seatMap) dom.seatMap.style.display = 'none';
         if (dom.cardSeat) dom.cardSeat.style.display = 'none';
@@ -695,18 +955,18 @@ document.addEventListener('DOMContentLoaded', function () {
             dom.btnContinue.classList.add('btn-success');
         }
 
-        localStorage.setItem('booking_step', 'promotions');
+        localStorage.setItem(getBookingStorageKey('booking_step'), 'promotions');
     }
 
+    //Hiển thị trạng thái đang tải khuyến mãi
     function renderPromotionLoadingState() {
-        if (dom.formUserPromotions) {
-            dom.formUserPromotions.innerHTML = '<div class="text-muted small">Dang tai khuyen mai...</div>';
-        }
-
         if (dom.pointStart) {
             dom.pointStart.placeholder = 'Dang tai diem tich luy...';
         }
+
+        setRegisteredCouponState('Dang tai ma da dang ky...');
     }
+
 
     async function showPromotionStep() {
         showPromotionStepLayout();
@@ -715,89 +975,140 @@ document.addEventListener('DOMContentLoaded', function () {
         try {
             promotionCache = await preloadPromotionData();
             renderPromotion(promotionCache);
+            await renderRegisterVoucher();
         } catch (error) {
             console.error('Loi tai khuyen mai:', error);
             promotionCache = {
-                vouchers: [],
                 memberInfo: { points: 0 }
             };
 
             renderPromotion(promotionCache);
+            setRegisteredCouponState('Khong the tai danh sach ma da dang ky.');
         }
     }
 
-    function renderPromotion(promotionData) {
-        const userPromo = dom.formUserPromotions;
-        const pointStart = dom.pointStart;
-        const { vouchers, memberInfo } = promotionData;
-
-        if (userPromo) {
-            userPromo.innerHTML = renderVoucherList(vouchers);
+    async function renderRegisterVoucher() {
+        const container = dom.registeredCoupon;
+        if (!container) {
+            return;
         }
+
+        try {
+            setRegisteredCouponState('Dang tai ma da dang ky...');
+
+            const response = await apiFetch('/customer/registered-promotions', {
+                method: 'GET'
+            });
+
+            const result = await response.json().catch(() => ({}));
+
+            if (!response.ok || result.status !== 'success') {
+                setRegisteredCouponState(result.message || 'Khong the tai danh sach ma da dang ky.');
+                return;
+            }
+
+            const vouchers = result.data || [];
+
+            if (vouchers.length === 0) {
+                setRegisteredCouponState('Ban chua co ma nao da dang ky.');
+                return;
+            }
+
+            replaceContent(container, vouchers.map(createRegisteredVoucherRow));
+        } catch (error) {
+            console.error('Loi render voucher:', error);
+            setRegisteredCouponState('Loi tai du lieu ma da dang ky.', 'small text-danger');
+        }
+    }
+
+    async function handleRegisterVoucher() {
+        const code = dom.couponCodeInput?.value?.trim();
+        const password = dom.passwordCoupon?.value?.trim();
+        const registerButton = dom.btnRegisterCoupon;
+
+        if (!code || !password) {
+            alert('Vui long nhap day du thong tin');
+            return;
+        }
+
+        if (!registerButton) {
+            return;
+        }
+
+        try {
+            registerButton.disabled = true;
+
+            const response = await apiFetch('/customer/register-promotion', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ code, password })
+            });
+
+            const result = await response.json().catch(() => ({}));
+
+            if (!response.ok || result.status !== 'success') {
+                alert(result.message || 'Dang ky ma that bai');
+                return;
+            }
+
+            await renderRegisterVoucher();
+
+            if (dom.couponCodeInput) {
+                dom.couponCodeInput.value = '';
+            }
+
+            if (dom.passwordCoupon) {
+                dom.passwordCoupon.value = '';
+            }
+
+            alert(result.message || 'Dang ky thanh cong');
+        } catch (error) {
+            console.error('Loi dang ky voucher:', error);
+            alert('Khong the xu ly luc nay');
+        } finally {
+            registerButton.disabled = false;
+        }
+    }
+
+    if (dom.btnRegisterCoupon) {
+        dom.btnRegisterCoupon.addEventListener('click', handleRegisterVoucher);
+    }
+
+
+    function renderPromotion(promotionData) {
+        const pointStart = dom.pointStart;
+        const { memberInfo } = promotionData;
 
         if (pointStart) {
             pointStart.placeholder = `Ban co ${memberInfo.points} diem`;
         }
     }
 
-    function renderVoucherList(vouchers) {
-        if (!vouchers || vouchers.length === 0) {
-            return '<div class="text-muted small">Khong co voucher kha dung.</div>';
-        }
-
-        return vouchers.map(voucher => `
-            <div class="form-check mb-3">
-                <input
-                    class="form-check-input"
-                    type="checkbox"
-                    name="user-voucher"
-                    id="user-voucher-${voucher.id}"
-                    value="${voucher.id}"
-                    data-type="${voucher.discount_type}"
-                    data-value="${voucher.discount_value}"
-                >
-                <label class="form-check-label" for="user-voucher-${voucher.id}">
-                    ${voucher.name} - ${voucher.discount_type === 'phan_tram' ? `${voucher.discount_value}%` : formatCurrency(voucher.discount_value)}
-                </label>
-            </div>
-        `).join('');
-    }
-
     function setupPromotionEvent() {
-        if (dom.formUserPromotions) {
-            dom.formUserPromotions.addEventListener('change', function (event) {
-                const target = event.target;
-                if (target.name !== 'user-voucher') {
-                    return;
-                }
-
-                const voucherInputs = dom.formUserPromotions.querySelectorAll('input[name="user-voucher"]');
-                voucherInputs.forEach(input => {
-                    if (input !== target) {
-                        input.checked = false;
-                    }
-                });
-
-                if (!target.checked) {
-                    bookingDiscount.selectedVoucher = null;
-                    updateTotalPrice();
-                    return;
-                }
-
-                bookingDiscount.selectedVoucher = {
-                    id: Number(target.value),
-                    type: target.dataset.type,
-                    value: toAmount(target.dataset.value)
-                };
-                updateTotalPrice();
-            });
-        }
-
         const btnApplyCoupon = document.getElementById('btn-apply-coupon');
         if (btnApplyCoupon) {
             btnApplyCoupon.addEventListener('click', async function () {
                 const code = dom.couponCodeInput?.value.trim() || '';
                 await handleApplyCouponCode(code);
+            });
+        }
+
+        if (dom.registeredCoupon) {
+            dom.registeredCoupon.addEventListener('click', async function (event) {
+                const button = event.target.closest('.registered-voucher-toggle');
+                if (!button) {
+                    return;
+                }
+
+                if (button.dataset.action === 'cancel') {
+                    clearAppliedCoupon();
+                    await renderRegisterVoucher();
+                    return;
+                }
+
+                await handleApplyCouponCode(button.dataset.code || '');
             });
         }
 
@@ -841,24 +1152,38 @@ document.addEventListener('DOMContentLoaded', function () {
                     total_amount: getSubtotal()
                 })
             });
-            const result = await response.json();
+            const result = await response.json().catch(() => ({}));
 
             if (!response.ok || result.status !== 'success') {
                 alert(result.message || 'Ma khong hop le');
                 return;
             }
 
-            bookingDiscount.promoCode = code;
-            bookingDiscount.promoValue = toAmount(result.data.discount_value);
+            const discountValue = toAmount(result.data?.discount_value ?? result.data?.discount);
+            const subtotal = getSubtotal();
 
-            const couponMessage = document.getElementById('coupon-message');
-            if (couponMessage) {
-                couponMessage.innerHTML = `<span class="text-success">Ap dung ma thanh cong: -${formatCurrency(result.data.discount_value)}</span>`;
+            if (discountValue >= subtotal) {
+                alert('Ma giam gia khong hop le (lon hon hoac bang tong tien)');
+                return;
             }
 
+            bookingDiscount.promoId = Number(result.data?.promotion_id) || null;
+            bookingDiscount.promoCode = code;
+            bookingDiscount.promoValue = discountValue;
+
+            replaceContent(dom.couponMessage, [
+                createElement('span', {
+                    className: 'text-success',
+                    text: `Ap dung ma thanh cong: -${formatCurrency(discountValue)}`
+                })
+            ]);
+
+            renderAppliedCouponStatus();
+            await renderRegisterVoucher();
             updateTotalPrice();
         } catch (error) {
             console.error('Loi check coupon:', error);
+            alert('Khong the kiem tra ma giam gia luc nay');
         }
     }
 
@@ -879,47 +1204,8 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        const fragment = document.createDocumentFragment();
         const rows = Object.keys(seatsByRow).sort().reverse();
-
-        rows.forEach(row => {
-            const rowDiv = document.createElement('div');
-            rowDiv.className = 'd-flex justify-content-center align-items-center w-100 gap-2 mb-2';
-
-            const leftLabel = document.createElement('div');
-            leftLabel.className = 'row-label fw-bold small text-muted';
-            leftLabel.innerText = row;
-            rowDiv.appendChild(leftLabel);
-
-            const seatsInRow = [...seatsByRow[row]].sort((a, b) => Number(a.so_ghe) - Number(b.so_ghe));
-            seatsInRow.forEach(seat => {
-                const seatEl = document.createElement('div');
-                const isBooked = Boolean(seat.is_booked);
-                const seatId = String(seat.id);
-
-                seatEl.className = `seat ${isBooked ? 'booked' : 'available'}`;
-                seatEl.innerText = seat.so_ghe;
-                seatEl.dataset.id = seatId;
-                seatEl.dataset.name = `${row}${seat.so_ghe}`;
-                seatEl.dataset.price = toAmount(seat.gia_ghe);
-
-                if (selectedSeats.has(seatId)) {
-                    seatEl.classList.add('selected');
-                }
-
-                rowDiv.appendChild(seatEl);
-            });
-
-            const rightLabel = document.createElement('div');
-            rightLabel.className = 'row-label fw-bold small text-muted';
-            rightLabel.innerText = row;
-            rowDiv.appendChild(rightLabel);
-
-            fragment.appendChild(rowDiv);
-        });
-
-        dom.seatMap.innerHTML = '';
-        dom.seatMap.appendChild(fragment);
+        replaceContent(dom.seatMap, rows.map(row => createSeatRow(row, seatsByRow[row])));
     }
 
     async function handleSeatSelection(el) {
@@ -996,48 +1282,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         dom.cardProduct.style.display = 'block';
         dom.productMap.className = 'row g-3';
-        dom.productMap.innerHTML = products.map(product => {
-            const productId = Number(product.id);
-            const quantity = selectedProducts.get(productId)?.qty || 0;
-
-            return `
-                <div class="col-md-12 mb-3">
-                    <div class="product-card d-flex align-items-center p-3 border rounded-4 bg-white shadow-sm">
-                        <div class="product-img me-3 mr-3">
-                            <img src="/storage/${product.hinh_anh_url}"
-                                alt="${product.ten_san_pham}"
-                                class="rounded-3 shadow-sm"
-                                style="width: 80px; height: 80px; object-fit: cover;">
-                        </div>
-
-                        <div class="flex-grow-1">
-                            <h6 class="mb-1 fw-bold text-dark">${product.ten_san_pham}</h6>
-                            <p class="text-primary fw-bold mb-0">${formatCurrency(Number(product.gia_ban))}</p>
-                        </div>
-
-                        <div class="quantity-controls d-flex align-items-center gap-3 bg-light rounded-pill p-1 px-2">
-                            <button class="btn btn-sm btn-white rounded-circle shadow-sm p-0 product-qty-btn"
-                                    type="button"
-                                    data-id="${productId}"
-                                    data-delta="-1"
-                                    style="width: 28px; height: 28px; line-height: 28px;">-</button>
-
-                            <span id="qty-${productId}" class="fw-bold" style="min-width:20px; text-align:center;">${quantity}</span>
-
-                            <button class="btn btn-sm btn-warning text-white rounded-circle shadow-sm p-0 product-qty-btn"
-                                    type="button"
-                                    data-id="${productId}"
-                                    data-delta="1"
-                                    style="width: 28px; height: 28px; line-height: 28px;">+</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
+        replaceContent(dom.productMap, products.map(createProductCard));
     }
 
     function restoreSavedSeats() {
-        const savedSeat = localStorage.getItem('selected_seats');
+        const savedSeat = localStorage.getItem(getBookingStorageKey('selected_seats'));
         if (!savedSeat) {
             return;
         }
@@ -1063,7 +1312,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 totalSeatPrice += normalizedSeat.price;
             });
         } catch (error) {
-            localStorage.removeItem('selected_seats');
+            localStorage.removeItem(getBookingStorageKey('selected_seats'));
         }
     }
 
@@ -1096,7 +1345,7 @@ document.addEventListener('DOMContentLoaded', function () {
             renderSelectedProductsSidebar();
             updateTotalPrice();
 
-            const savedStep = localStorage.getItem('booking_step');
+            const savedStep = localStorage.getItem(getBookingStorageKey('booking_step'));
             if (savedStep === 'promotions') {
                 await showProductStep();
                 await showPromotionStep();

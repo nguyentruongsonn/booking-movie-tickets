@@ -7,6 +7,7 @@ use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Models\Customers;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Tymon\JWTAuth\Factory;
@@ -14,12 +15,14 @@ use Tymon\JWTAuth\Facades\JWTAuth;
 
 class AuthController extends Controller
 {
+    private const CUSTOMER_GUARD = 'customer';
     private const ACCESS_TTL_MINUTES = 15;
     private const REFRESH_TTL_MINUTES = 10080;
 
     public function register(RegisterRequest $request)
     {
         try {
+            Auth::shouldUse(self::CUSTOMER_GUARD);
             $validated = $request->validated();
             $validated['mat_khau'] = Hash::make($validated['mat_khau']);
             Customers::create($validated);
@@ -41,10 +44,11 @@ class AuthController extends Controller
     public function login(LoginRequest $request)
     {
         try {
+            Auth::shouldUse(self::CUSTOMER_GUARD);
             $validated = $request->validated();
 
             $customer = Customers::where('email', $validated['email'])->first();
-            if (!$customer || !Hash::check($request->mat_khau, $customer->mat_khau)) {
+            if (!$customer || !Hash::check($validated['mat_khau'], $customer->mat_khau)) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Email hoac mat khau khong chinh xac',
@@ -65,6 +69,9 @@ class AuthController extends Controller
                 'status' => 'success',
                 'message' => 'Dang nhap thanh cong',
                 'token' => $tokens['access_token'],
+                'access_token' => $tokens['access_token'],
+                'token_type' => 'Bearer',
+                'expires_in' => self::ACCESS_TTL_MINUTES * 60,
                 'user' => [
                     'id' => $customer->id,
                     'ho_ten' => $customer->ho_ten,
@@ -82,6 +89,8 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        Auth::shouldUse(self::CUSTOMER_GUARD);
+
         try {
             if ($token = JWTAuth::getToken()) {
                 JWTAuth::setToken($token)->invalidate(true);
@@ -100,11 +109,13 @@ class AuthController extends Controller
         }
 
         return response()->json(['status' => 'success'])
-            ->withoutCookie('refresh_token');
+            ->withoutCookie('refresh_token', '/api/auth', config('session.domain'));
     }
 
     public function refreshToken(Request $request)
     {
+        Auth::shouldUse(self::CUSTOMER_GUARD);
+
         $refreshToken = $request->cookie('refresh_token');
         if (!$refreshToken) {
             return response()->json([
@@ -143,6 +154,9 @@ class AuthController extends Controller
                 'status' => 'success',
                 'message' => 'Refresh token thanh cong',
                 'token' => $tokens['access_token'],
+                'access_token' => $tokens['access_token'],
+                'token_type' => 'Bearer',
+                'expires_in' => self::ACCESS_TTL_MINUTES * 60,
             ], 200)->withCookie($this->makeRefreshCookie($tokens['refresh_token']));
         } catch (\Throwable $e) {
             return response()->json([
@@ -154,14 +168,18 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
+        Auth::shouldUse(self::CUSTOMER_GUARD);
+
         return response()->json([
             'status' => 'success',
-            'data' => $request->user(),
+            'data' => $request->user(self::CUSTOMER_GUARD),
         ]);
     }
 
     private function issueJwtTokens(Customers $customer, string $device): array
     {
+        Auth::shouldUse(self::CUSTOMER_GUARD);
+
         app(Factory::class)->setTTL(self::ACCESS_TTL_MINUTES);
         $accessToken = JWTAuth::claims([
             'token_type' => 'access',
@@ -184,6 +202,18 @@ class AuthController extends Controller
 
     private function makeRefreshCookie(string $refreshToken)
     {
-        return cookie('refresh_token', $refreshToken, self::REFRESH_TTL_MINUTES, '/', null, false, true, false, 'Lax');
+        $isSecureCookie = app()->environment('production') || request()->isSecure();
+
+        return cookie(
+            'refresh_token',
+            $refreshToken,
+            self::REFRESH_TTL_MINUTES,
+            '/api/auth',
+            config('session.domain'),
+            $isSecureCookie,
+            true,
+            false,
+            'Lax'
+        );
     }
 }

@@ -9,6 +9,7 @@ class InvoiceDetails extends Model
     protected $fillable = [
         'hoa_don_id',
         'san_pham_id',
+        'ten_san_pham',
         'so_luong',
         'don_gia',
     ];

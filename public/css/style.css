@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * Bootstrap v4.5.0 (https://getbootstrap.com/)
  * Copyright 2011-2020 The Bootstrap Authors
  * Copyright 2011-2020 Twitter, Inc.
@@ -12773,7 +12773,7 @@ h5,
   background: #f15d30 !important;
   border: 1px solid #f15d30 !important;
   color: #fff !important;
-  border-radius: 50rem !important;
+  border-radius: 0.35rem !important;
 }
 #btn-back,
 #btn-continue{
@@ -13208,7 +13208,7 @@ h5,
 .form-control {
   background: #fff !important;
   color: #000000 !important;
-  border-radius: 20px;
+  border-radius: 0.35rem;
   -webkit-box-shadow: none !important;
   box-shadow: none !important;
 }
@@ -15096,7 +15096,296 @@ body .ftco-navbar-light .nav-item.cta > a {
   border-bottom: 2px solid #f15d30;
 }
 
+.booking-page {
+  background:
+    radial-gradient(circle at top left, rgba(241, 93, 48, 0.16), transparent 32%),
+    radial-gradient(circle at top right, rgba(255, 193, 7, 0.18), transparent 28%),
+    linear-gradient(180deg, #fffaf6 0%, #f5f7fb 100%);
+}
+
+.booking-layout {
+  max-width: 1240px;
+}
+
+.booking-page .booking-panel,
+.booking-page .booking-sidebar {
+  border: 1px solid rgba(20, 28, 45, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.booking-page .booking-sidebar {
+  position: sticky;
+  top: 110px;
+  overflow: hidden;
+}
+
+.booking-page .booking-steps {
+  margin-bottom: 0;
+  padding: 8px;
+  border: 1px solid rgba(20, 28, 45, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.booking-page .booking-steps .list-inline-item {
+  margin: 0;
+  padding: 12px 20px;
+  border-radius: 999px;
+  border-bottom: none;
+  color: #64748b;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.booking-page .booking-steps .list-inline-item.active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #f15d30 0%, #ff9f1c 100%);
+  box-shadow: 0 10px 24px rgba(241, 93, 48, 0.28);
+  transform: translateY(-1px);
+}
+
+.booking-page #current-time-display,
+.booking-page #btn-register-coupon,
+.booking-page #btn-apply-points,
+.booking-page #btn-continue,
+.booking-page .registered-voucher-toggle {
+  border: none;
+  border-radius: 999px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
+.booking-page #current-time-display,
+.booking-page #btn-register-coupon,
+.booking-page #btn-apply-points,
+.booking-page #btn-continue {
+  background: linear-gradient(135deg, #f15d30 0%, #ff9f1c 100%);
+}
+
+.booking-page #btn-back {
+  border-radius: 999px;
+  border: 1px solid rgba(100, 116, 139, 0.2);
+  background: #eef2f7;
+  color: #334155;
+}
+
+.booking-page #card-seat .border-bottom {
+  width: min(86%, 680px) !important;
+  padding: 14px 0 10px !important;
+  border-bottom-width: 6px !important;
+  border-bottom-color: #f15d30 !important;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(241, 93, 48, 0.08), rgba(241, 93, 48, 0));
+  color: #7c2d12 !important;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.booking-page #seat-map {
+  gap: 10px;
+  padding: 24px 18px;
+  border: 1px solid rgba(241, 93, 48, 0.08);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 250, 251, 0.92)),
+    radial-gradient(circle at top, rgba(241, 93, 48, 0.08), transparent 40%);
+}
+
+.booking-page .seat {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: inset 0 -2px 0 rgba(148, 163, 184, 0.15);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.booking-page .seat.available:hover {
+  color: #f15d30;
+  border-color: rgba(241, 93, 48, 0.8);
+  box-shadow: 0 10px 18px rgba(241, 93, 48, 0.14);
+  transform: translateY(-2px);
+}
+
+.booking-page .seat.selected {
+  color: #ffffff;
+  border-color: #f15d30;
+  background: linear-gradient(135deg, #f15d30 0%, #ff9f1c 100%);
+  box-shadow: 0 12px 20px rgba(241, 93, 48, 0.24);
+}
+
+.booking-page .seat.booked {
+  color: #7f1d1d;
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  background: linear-gradient(180deg, #fee2e2 0%, #fecaca 100%);
+  box-shadow: none;
+}
+
+.booking-page .seat.booked::after {
+  content: none;
+}
+
+.booking-page .row-label {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(226, 232, 240, 0.9);
+  color: #475569;
+  font-weight: 700;
+}
+
+.booking-page .booking-seat-legend {
+  flex-wrap: wrap;
+  gap: 14px !important;
+}
+
+.booking-page .booking-seat-legend > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(248, 250, 252, 0.96);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  color: #475569;
+}
+
+.booking-page .product-card {
+  border: 1px solid rgba(241, 93, 48, 0.08) !important;
+  border-radius: 24px !important;
+  background: linear-gradient(180deg, #ffffff 0%, #fff8f3 100%) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.booking-page .product-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.09) !important;
+}
+
+.booking-page .quantity-controls {
+  border: 1px solid rgba(241, 93, 48, 0.1);
+  background: #fff7ed !important;
+}
+
+.booking-page .selected-products-list,
+.booking-page #selected-products-sidebar,
+.booking-page #coupon-message,
+.booking-page #applied-coupon {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.booking-page #selected-products-sidebar:empty,
+.booking-page #coupon-message:empty,
+.booking-page #applied-coupon:empty {
+  display: none;
+}
+
+.booking-page .booking-coupon-table thead th {
+  border-top: none;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.booking-page .booking-coupon-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.booking-page .booking-coupon-table tbody tr:hover {
+  background: rgba(248, 250, 252, 0.95);
+}
+
+.booking-page .booking-coupon-table td,
+.booking-page .booking-coupon-table th {
+  padding: 14px 12px;
+  vertical-align: middle;
+}
+
+.booking-page .booking-coupon-table tbody td {
+  border-color: rgba(226, 232, 240, 0.75);
+}
+
+.booking-page .registered-voucher-toggle.btn-outline-primary {
+  color: #f15d30;
+  background: rgba(241, 93, 48, 0.08);
+  border: 1px solid rgba(241, 93, 48, 0.2);
+  box-shadow: none;
+}
+
+.booking-page .registered-voucher-toggle.btn-outline-danger {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  box-shadow: none;
+}
+
+.booking-page #book-poster {
+  border-radius: 18px !important;
+  min-height: 132px;
+  object-fit: cover;
+}
+
+.booking-page #total-price {
+  color: #f15d30 !important;
+  font-size: 2rem;
+  letter-spacing: -0.03em;
+}
+
+.booking-page input.form-control {
+  min-height: 48px;
+  border-radius: 16px;
+  border-color: rgba(203, 213, 225, 0.95);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: none;
+}
+
+.booking-page input.form-control:focus {
+  border-color: rgba(241, 93, 48, 0.75);
+  box-shadow: 0 0 0 0.2rem rgba(241, 93, 48, 0.12);
+}
+
+.booking-page .input-group > .form-control {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.booking-page .input-group > .btn {
+  min-width: 120px;
+}
+
 @media (max-width: 991.98px) {
+  .booking-page .booking-sidebar {
+    position: static;
+    top: auto;
+  }
+
+  .booking-page .booking-steps {
+    border-radius: 28px;
+  }
+
+  .booking-page .booking-steps .list-inline-item {
+    width: calc(50% - 8px);
+  }
+
   .booking-search-shell {
     margin-top: -40px;
   }
@@ -15111,6 +15400,39 @@ body .ftco-navbar-light .nav-item.cta > a {
 }
 
 @media (max-width: 767.98px) {
+  .booking-page .booking-panel,
+  .booking-page .booking-sidebar {
+    border-radius: 24px !important;
+  }
+
+  .booking-page .booking-steps {
+    gap: 8px !important;
+  }
+
+  .booking-page .booking-steps .list-inline-item {
+    width: 100%;
+    padding: 10px 14px;
+  }
+
+  .booking-page #seat-map {
+    padding: 18px 8px;
+    overflow-x: auto;
+  }
+
+  .booking-page .seat {
+    width: 32px;
+    height: 32px;
+    font-size: 11px;
+  }
+
+  .booking-page .booking-coupon-table {
+    min-width: 560px;
+  }
+
+  .booking-page #total-price {
+    font-size: 1.6rem;
+  }
+
   .movie-hero h1 {
     font-size: 36px;
   }

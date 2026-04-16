@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container-fluid bg-light py-4">
-    <div class="container">
+<div class="container-fluid bg-light py-4 booking-page">
+    <div class="container booking-layout">
         <div class="row mb-4">
             <div class="col-12 text-center">
-                <ul class="list-inline d-flex justify-content-center gap-4 text-muted small fw-bold">
+                <ul class="list-inline d-flex justify-content-center gap-4 text-muted small fw-bold booking-steps">
                     <li class="list-inline-item active" id="choose-seat">Chon ghe</li>
                     <li class="list-inline-item" id="choose-product">Chon thuc an</li>
                     <li class="list-inline-item" id="choose-promotion">Khuyen mai</li>
@@ -16,7 +16,7 @@
 
         <div class="row">
             <div class="col-md-8">
-                <div class="card shadow-sm p-4 border-0 mb-4" id="card-seat" style="border-radius: 15px;">
+                <div class="card shadow-sm p-4 border-0 mb-4 booking-panel" id="card-seat" style="border-radius: 15px;">
                     <div class="d-flex justify-content-between align-items-center mb-4">
                         <div class="d-flex align-items-center">
                             <span class="me-2">Doi suat chieu:</span>
@@ -30,14 +30,14 @@
 
                     <div id="seat-map" class="mx-auto" style="width:100%;"></div>
 
-                    <div class="d-flex justify-content-center mt-5 gap-4 small">
+                    <div class="d-flex justify-content-center mt-5 gap-4 small booking-seat-legend">
                         <div><span class="d-inline-block bg-secondary rounded" style="width:15px; height:15px;"></span> Ghe da ban</div>
                         <div><span class="d-inline-block border rounded" style="width:15px; height:15px;"></span> Ghe trong</div>
                         <div><span class="d-inline-block bg-primary rounded" style="width:15px; height:15px;"></span> Ghe dang chon</div>
                     </div>
                 </div>
 
-                <div class="card shadow-sm p-4 border-0 mb-4" id="card-product" style="border-radius:15px; display:none;">
+                <div class="card shadow-sm p-4 border-0 mb-4 booking-panel" id="card-product" style="border-radius:15px; display:none;">
                     <div class="d-flex justify-content-between align-items-center mb-4">
                         <div class="d-flex align-items-center">
                             <span class="me-2 fw-bold">Chon combo / san pham</span>
@@ -47,37 +47,96 @@
                     <div class="selected-products-list small mt-3" id="selected-products-list"></div>
                 </div>
 
-                <div class="card shadow-sm p-4 border-0 mb-4" id="card-promotion" style="border-radius:15px; display:none;">
+                <div class="card shadow-sm p-4 border-0 mb-4 booking-panel" id="card-promotion" style="border-radius:15px; display:none;">
                     <div class="mb-4">
                         <span class="fw-bold">Khuyen mai</span>
                     </div>
-
                     <div id="promotion-map" class="mx-auto w-100">
-                        <div class="col-md-12">
-                            <div class="mb-3">
-                                <label for="coupon-code-input" class="form-label">Ma giam gia</label>
-                                <input type="text" id="coupon-code-input" class="form-control" placeholder="Nhap ma giam gia">
-                                <button class="btn btn-primary rounded-3 text-white mt-2" type="button" id="btn-apply-coupon">
-                                    Ap dung
-                                </button>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <div class="border rounded-4 p-3 bg-light">
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <label class="form-label small text-muted">Ma giam gia</label>
+                                            <input type="text"
+                                                id="coupon-code-input"
+                                                autocomplete="off"
+                                                class="form-control"
+                                                placeholder="Nhap ma giam gia">
+                                        </div>
+
+                                        <div class="col-md-4">
+                                            <label class="form-label small text-muted">Mat khau</label>
+                                            <input type="password"
+                                                id="password-coupon"
+                                                autocomplete="new-password"
+                                                class="form-control"
+                                                placeholder="Nhap mat khau">
+                                        </div>
+
+                                        <div class="col-md-3 d-flex align-items-end">
+                                            <button class="btn btn-primary text-white w-100"
+                                                    type="button"
+                                                    id="btn-register-coupon">
+                                                Dang ky
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div class="form-check mb-3" id="form-user-promotions"></div>
+                            <div class="col-12">
+                                <div class="border rounded-4 p-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="fw-semibold">Ma da dang ky</span>
+                                    </div>
 
-                            <div class="mb-3">
-                                <label for="points-start" class="form-label">Ap dung diem</label>
-                                <input type="text" id="points-start" class="form-control" placeholder="Nhap so diem muon su dung">
-                                <button class="btn btn-primary rounded-4 text-white mt-2" type="button" id="btn-apply-points">
-                                    Ap dung
-                                </button>
+                                    <div class="table-responsive mt-2">
+                                        <table class="table table-sm align-middle mb-0 booking-coupon-table">
+                                            <thead>
+                                                <tr>
+                                                    <td>Ma khuyến mãi</td>
+                                                    <td>Nội dung</td>
+                                                    <td>Ngày hết hạn</td>
+                                                    <td class="text-center">Thao tác</td>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="registered-coupon"></tbody>
+                                        </table>
+                                    </div>
+
+
+                                    <div id="applied-coupon" class="small text-success mt-2"></div>
+                                </div>
                             </div>
 
-                            <div id="coupon-message" class="small"></div>
+                            <div class="col-12">
+                                <div class="border rounded-4 p-3 bg-light">
+                                    <div class="fw-semibold mb-2">Diem tich luy</div>
+
+                                    <div class="input-group">
+                                        <input type="text"
+                                            id="points-start"
+                                            class="form-control"
+                                            placeholder="Nhap so diem muon dung">
+
+                                        <button class="btn btn-primary"
+                                                type="button"
+                                                id="btn-apply-points">
+                                            Ap dung
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div id="coupon-message" class="small"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="card shadow-sm p-4 border-0 mb-4" id="card-confirm" style="border-radius:15px; display:none;">
+                <div class="card shadow-sm p-4 border-0 mb-4 booking-panel" id="card-confirm" style="border-radius:15px; display:none;">
                     <div id="payment-success-content" class="d-none">
 
                     </div>
@@ -89,7 +148,7 @@
             </div>
 
             <div class="col-md-4">
-                <div class="card shadow-sm border-0" style="border-radius: 15px;">
+                <div class="card shadow-sm border-0 booking-sidebar" style="border-radius: 15px;">
                     <div class="p-4">
                         <div class="row">
                             <div class="col-4">

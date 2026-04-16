@@ -20,32 +20,25 @@ return [
      |--------------------------------------------------------------------------
      | Authentication Guards
      |--------------------------------------------------------------------------
+     |
+     | This project uses stateless JWT authentication for API clients and does
+     | not rely on session-based login. Guards are separated by actor.
+     |
      */
 
     'guards' => [
         'customer' => [
-            'driver' => 'session',
-            'provider' => 'customers',
-        ],
-
-        'employee' => [
-            'driver' => 'session',
-            'provider' => 'employees',
-        ],
-
-
-        // API guards
-        'api' => [
             'driver' => 'jwt',
             'provider' => 'customers',
         ],
 
-        'api_employee' => [
-            'driver' => 'token',
+        'employee' => [
+            'driver' => 'jwt',
             'provider' => 'employees',
-            'hash' => false,
         ],
-    ],
+
+
+        ],
 
     /*
      |--------------------------------------------------------------------------
@@ -57,13 +50,13 @@ return [
         // Provider cho customers (khách hàng)
         'customers' => [
             'driver' => 'eloquent',
-            'model' => App\Models\Customers::class ,
+            'model' => App\Models\Customers::class,
         ],
 
         // Provider cho employees (nhân viên)
         'employees' => [
             'driver' => 'eloquent',
-            'model' => App\Models\Employees::class ,
+            'model' => App\Models\Employees::class,
         ],
 
 

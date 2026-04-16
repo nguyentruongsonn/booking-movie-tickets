@@ -18,7 +18,7 @@ Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/refresh-token', [AuthController::class, 'refreshToken']);
 
-    Route::middleware('auth:api')->group(function () {
+    Route::middleware('auth:customer')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
     });
@@ -28,11 +28,12 @@ Route::get('/showtimes/{showtime}', [BookingApiController::class, 'showShowtime'
 Route::get('/products', [BookingApiController::class, 'indexProducts']);
 Route::post('/payos/webhook', [PaymentController::class, 'handleWebhook']);
 
-Route::middleware('customer')->group(function () {
+Route::middleware(['auth:customer', 'customer'])->group(function () {
     Route::post('/showtimes/{showtime}/seat-holds', [BookingApiController::class, 'storeSeatHold']);
-    Route::get('/customers/me/vouchers', [BookingApiController::class, 'indexMyVouchers']);
     Route::get('/customers/me/loyalty-points', [BookingApiController::class, 'showMyLoyaltyPoints']);
     Route::post('/promotions/validate', [BookingApiController::class, 'validatePromotion']);
+    Route::post('customer/register-promotion',[BookingApiController::class,'registerPromotion']);
+    Route::get('customer/registered-promotions',[BookingApiController::class,'registeredPromotions']);
     Route::post('/payments', [PaymentController::class, 'createPayment']);
     Route::get('/payments/orders/{orderCode}', [PaymentController::class, 'showOrderSummary']);
 });

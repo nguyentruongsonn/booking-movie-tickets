@@ -14,17 +14,26 @@ class Orders extends Model
     protected $fillable = [
         'ma_don_hang',
         'order_code',
+        'payment_provider',
         'customer_id',
         'suat_chieu_id',
         'tong_tien',
         'payload',
         'trang_thai',
+        'payment_status',
+        'checkout_url',
+        'paid_at',
+        'cancelled_at',
+        'expired_at',
     ];
 
     protected $casts = [
         'payload' => 'array',
         'tong_tien' => 'decimal:2',
         'created_at' => 'datetime',
+        'paid_at' => 'datetime',
+        'cancelled_at' => 'datetime',
+        'expired_at' => 'datetime',
     ];
 
     public function customer()

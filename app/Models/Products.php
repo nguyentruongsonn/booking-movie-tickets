@@ -25,7 +25,7 @@ class Products extends Model
     public function invoices()
     {
         return $this->belongsToMany(Invoices::class, 'invoice_details', 'san_pham_id', 'hoa_don_id')
-                    ->withPivot('so_luong', 'gia', 'thanh_tien')
+                    ->withPivot('ten_san_pham', 'so_luong', 'don_gia', 'thanh_tien')
                     ->withTimestamps();
     }
 }

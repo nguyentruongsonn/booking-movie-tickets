@@ -72,7 +72,7 @@ class Customers extends Authenticatable implements JWTSubject
     public function promotions()
     {
         return $this->belongsToMany(Promotions::class, 'customer_promotion', 'customer_id', 'promotion_id')
-                    ->withPivot('trang_thai', 'so_lan_da_dung', 'ngay_su_dung')
+                    ->withPivot('trang_thai', 'so_lan_da_dung', 'ngay_su_dung', 'order_id', 'invoice_id', 'gia_tri_giam')
                     ->withTimestamps();
     }
     public function addLoyaltyPoints($points)

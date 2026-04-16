@@ -11,16 +11,44 @@ use App\Models\Tickets;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class BookingApiController extends Controller
 {
+    protected function customer()
+    {
+        return auth('customer')->user();
+    }
+
+    protected function unauthorizedResponse()
+    {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Vui long dang nhap de tiep tuc.',
+        ], 401);
+    }
+
+    protected function transformPromotion($promotion): array
+    {
+        return [
+            'id' => $promotion->id,
+            'code' => $promotion->ma_khuyen_mai,
+            'name' => $promotion->ten_khuyen_mai,
+            'discount_type' => $promotion->loai_giam_gia,
+            'discount_value' => (float) $promotion->gia_tri_giam,
+            'minimum_order_amount' => (float) $promotion->don_toi_thieu,
+            'expires_at' => optional($promotion->ngay_ket_thuc)->toISOString(),
+        ];
+    }
+
     public function showShowtime(Showtimes $showtime)
     {
         $showtime->load(['room', 'movie']);
 
         $bookedSeats = Tickets::query()
             ->where('suat_chieu_id', $showtime->id)
-                ->where('trang_thai', '!=', 'cancelled')
+            ->where('trang_thai', '!=', 'cancelled')
             ->pluck('ghe_id')
             ->toArray();
 
@@ -32,6 +60,7 @@ class BookingApiController extends Controller
             ->get();
 
         $seatsByRow = [];
+
         foreach ($seats as $seat) {
             $row = $seat->hang_ghe;
 
@@ -123,41 +152,27 @@ class BookingApiController extends Controller
         ]);
     }
 
-    public function indexMyVouchers()
-    {
-        $vouchers = Auth::user()
-            ->promotions()
-            ->where('promotions.trang_thai', true)
-            ->where('promotions.ngay_bat_dau', '<=', now())
-            ->where('promotions.ngay_ket_thuc', '>=', now())
-            ->wherePivot('trang_thai', 0)
-            ->get();
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $vouchers->map(function ($voucher) {
-                return [
-                    'id' => $voucher->id,
-                    'code' => $voucher->ma_khuyen_mai,
-                    'name' => $voucher->ten_khuyen_mai,
-                    'discount_type' => $voucher->loai_giam_gia,
-                    'discount_value' => (float) $voucher->gia_tri_giam,
-                    'minimum_order_amount' => (float) $voucher->don_toi_thieu,
-                    'expires_at' => optional($voucher->ngay_ket_thuc)->toISOString(),
-                ];
-            }),
-        ]);
-    }
-
-    public function validatePromotion(Request $request)
+    public function registerPromotion(Request $request)
     {
         $request->validate([
             'code' => ['required', 'string'],
-            'total_amount' => ['required', 'numeric', 'min:0'],
+            'password' => ['required', 'min:8', 'string'],
         ]);
 
+        $user = $this->customer();
+        if (!$user) {
+            return $this->unauthorizedResponse();
+        }
+
+        if (!Hash::check($request->password, $user->mat_khau)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Mat khau khong dung.',
+            ], 422);
+        }
+
         $promotion = Promotions::query()
-            ->where('ma_khuyen_mai', $request->string('code')->toString())
+            ->where('ma_khuyen_mai', $request->string('code'))
             ->where('trang_thai', true)
             ->first();
 
@@ -175,48 +190,176 @@ class BookingApiController extends Controller
             ], 422);
         }
 
-        $totalAmount = (float) $request->input('total_amount');
-        if ($totalAmount < (float) $promotion->don_toi_thieu) {
+        $existing = $user->promotions()
+            ->where('promotions.id', $promotion->id)
+            ->first();
+
+        if ($existing) {
+            if ((int) $existing->pivot->trang_thai === 1) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Ma nay da duoc su dung.',
+                ], 422);
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Ma da co san trong tai khoan.',
+                'data' => $this->transformPromotion($promotion),
+            ]);
+        }
+
+        $user->promotions()->attach($promotion->id, [
+            'trang_thai' => 0,
+            'so_lan_da_dung' => 0,
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Dang ky ma thanh cong.',
+            'data' => $this->transformPromotion($promotion),
+        ]);
+    }
+
+    public function validatePromotion(Request $request)
+    {
+        $request->validate([
+            'code' => ['required', 'string'],
+            'total_amount' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $user = $this->customer();
+        if (!$user) {
+            return $this->unauthorizedResponse();
+        }
+
+        $promotion = $user->promotions()
+            ->where('promotions.ma_khuyen_mai', $request->code)
+            ->wherePivot('trang_thai', 0)
+            ->first();
+
+        if (!$promotion) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Don hang chua dat gia tri toi thieu.',
+                'message' => 'Ma khong hop le hoac da su dung.',
+            ], 404);
+        }
+
+        if (now()->lt($promotion->ngay_bat_dau) || now()->gt($promotion->ngay_ket_thuc)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Ma khuyen mai da het han.',
             ], 422);
         }
 
-        $isUsed = Auth::user()
-            ->promotions()
-            ->where('promotions.id', $promotion->id)
-            ->wherePivot('trang_thai', 1)
-            ->exists();
+        $totalAmount = (float) $request->total_amount;
 
-        if ($isUsed) {
+        if ($totalAmount < (float) $promotion->don_toi_thieu) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Ban da su dung ma nay.',
+                'message' => 'Chua dat gia tri don hang toi thieu.',
             ], 422);
         }
 
         $discountValue = $promotion->loai_giam_gia === 'phan_tram'
-            ? ($totalAmount * (float) $promotion->gia_tri_giam / 100)
+            ? ($totalAmount * $promotion->gia_tri_giam / 100)
             : (float) $promotion->gia_tri_giam;
+
+        $finalDiscountValue = min($discountValue, $totalAmount);
 
         return response()->json([
             'status' => 'success',
             'data' => [
-                'id' => $promotion->id,
+                'promotion_id' => $promotion->id,
+                'discount_type' => $promotion->loai_giam_gia,
+                'discount_value' => $finalDiscountValue,
+                'discount_amount' => $finalDiscountValue,
                 'code' => $promotion->ma_khuyen_mai,
-                'type' => $promotion->loai_giam_gia,
-                'discount_value' => min($discountValue, $totalAmount),
             ],
         ]);
     }
 
+    public function registeredPromotions()
+    {
+        $user = $this->customer();
+        if (!$user) {
+            return $this->unauthorizedResponse();
+        }
+
+        $promotions = $user->promotions()
+            ->where('promotions.trang_thai', true)
+            ->where('promotions.ngay_bat_dau', '<=', now())
+            ->where('promotions.ngay_ket_thuc', '>=', now())
+            ->wherePivot('trang_thai', 0)
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $promotions->map(fn ($promotion) => $this->transformPromotion($promotion)),
+        ]);
+    }
+
+    public function checkout(Request $request, Showtimes $showtime)
+    {
+        $request->validate([
+            'seats' => ['required', 'array', 'min:1'],
+            'seats.*' => ['integer'],
+            'promotion_id' => ['nullable', 'integer'],
+        ]);
+
+        $user = $this->customer();
+        if (!$user) {
+            return $this->unauthorizedResponse();
+        }
+
+        return DB::transaction(function () use ($request, $user, $showtime) {
+            $promotion = null;
+
+            if ($request->promotion_id) {
+                $promotion = $user->promotions()
+                    ->where('promotions.id', $request->promotion_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$promotion || (int) $promotion->pivot->trang_thai === 1) {
+                    throw new \Exception('Ma khuyen mai khong hop le hoac da su dung.');
+                }
+            }
+
+            foreach ($request->seats as $seatId) {
+                Tickets::create([
+                    'suat_chieu_id' => $showtime->id,
+                    'ghe_id' => $seatId,
+                    'user_id' => $user->id,
+                    'trang_thai' => 'booked',
+                ]);
+            }
+
+            if ($promotion) {
+                $user->promotions()->updateExistingPivot($promotion->id, [
+                    'trang_thai' => 1,
+                    'so_lan_da_dung' => DB::raw('so_lan_da_dung + 1'),
+                ]);
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Dat ve thanh cong.',
+            ]);
+        });
+    }
+
     public function showMyLoyaltyPoints()
     {
+        $user = $this->customer();
+        if (!$user) {
+            return $this->unauthorizedResponse();
+        }
+
         return response()->json([
             'status' => 'success',
             'data' => [
-                'points' => Auth::user()->diem_tich_luy ?? 0,
+                'points' => $user->diem_tich_luy ?? 0,
             ],
         ]);
     }
