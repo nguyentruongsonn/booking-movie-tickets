@@ -50,5 +50,12 @@ return [
         'redirect' => env('GITHUB_CALLBACK_URL'),
     ],
 
+    'payos' => [
+        'client_id'    => env('PAYOS_CLIENT_ID'),
+        'api_key'      => env('PAYOS_API_KEY'),
+        'checksum_key' => env('PAYOS_CHECKSUM_KEY'),
+        // IPs chính thức của PayOS để whitelist webhook
+        'webhook_ips'  => explode(',', env('PAYOS_WEBHOOK_IPS', '113.160.92.202,113.160.92.203,113.160.92.204,14.225.204.109')),
+    ],
 
 ];

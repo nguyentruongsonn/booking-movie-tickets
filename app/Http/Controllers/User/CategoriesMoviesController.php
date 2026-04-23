@@ -33,7 +33,7 @@ class CategoriesMoviesController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(categories_movies $categories_movies)
+    public function show(CategoryMovie $categories_movies)
     {
         //
     }
@@ -41,7 +41,7 @@ class CategoriesMoviesController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(categories_movies $categories_movies)
+    public function edit(CategoryMovie $categories_movies)
     {
         //
     }
@@ -49,7 +49,7 @@ class CategoriesMoviesController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, categories_movies $categories_movies)
+    public function update(Request $request, CategoryMovie $categories_movies)
     {
         //
     }
@@ -57,7 +57,7 @@ class CategoriesMoviesController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(categories_movies $categories_movies)
+    public function destroy(CategoryMovie $categories_movies)
     {
         //
     }

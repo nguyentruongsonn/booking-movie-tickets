@@ -3,364 +3,222 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
-use App\Models\Products;
-use App\Models\Promotions;
-use App\Models\Seats;
-use App\Models\Showtimes;
-use App\Models\Tickets;
+use App\Http\Resources\PromotionResource;
+use App\Http\Resources\ShowtimeResource;
+use App\Traits\ApiResponse;
+use App\Models\OrderItem;
+use App\Models\Order;
+use App\Models\Product;
+use App\Models\Promotion;
+use App\Models\Seat;
+use App\Models\Showtime;
+use App\Services\Booking\SeatHoldService;
+use App\Services\Promotion\PromotionService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class BookingApiController extends Controller
 {
-    protected function customer()
-    {
-        return auth('customer')->user();
-    }
+    use ApiResponse;
+ 
+    public function __construct(
+        private readonly SeatHoldService $seatHoldService,
+        private readonly PromotionService $promotionService
+    ) {}
 
-    protected function unauthorizedResponse()
+    // -------------------------------------------------------------------------
+    // Endpoints
+    // -------------------------------------------------------------------------
+ 
+    /**
+     * Lấy thông tin suất chiếu và bản đồ ghế.
+     * GET /api/showtimes/{showtime}
+     */
+    public function showShowtime(Showtime $showtime): JsonResponse
     {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Vui long dang nhap de tiep tuc.',
-        ], 401);
-    }
-
-    protected function transformPromotion($promotion): array
-    {
-        return [
-            'id' => $promotion->id,
-            'code' => $promotion->ma_khuyen_mai,
-            'name' => $promotion->ten_khuyen_mai,
-            'discount_type' => $promotion->loai_giam_gia,
-            'discount_value' => (float) $promotion->gia_tri_giam,
-            'minimum_order_amount' => (float) $promotion->don_toi_thieu,
-            'expires_at' => optional($promotion->ngay_ket_thuc)->toISOString(),
-        ];
-    }
-
-    public function showShowtime(Showtimes $showtime)
-    {
-        $showtime->load(['room', 'movie']);
-
-        $bookedSeats = Tickets::query()
-            ->where('suat_chieu_id', $showtime->id)
-            ->where('trang_thai', '!=', 'cancelled')
-            ->pluck('ghe_id')
+        $showtime->load(['screen', 'movie']);
+ 
+        // Lấy danh sách ghế đã được đặt (Paid hoặc Pending con thời hạn)
+        $bookedSeatIds = OrderItem::query()
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->where('orders.showtime_id', $showtime->id)
+            ->where('order_items.item_type', 'ticket')
+            ->where(function($query) {
+                $query->where('orders.status', Order::STATUS_PAID)
+                      ->orWhere(function($q) {
+                          $q->where('orders.status', Order::STATUS_PENDING)
+                            ->where('orders.expired_at', '>', now());
+                      });
+            })
+            ->pluck('order_items.item_id')
             ->toArray();
-
-        $seats = Seats::query()
-            ->where('room_id', $showtime->room_id)
-            ->with('seat_type')
-            ->orderBy('hang_ghe')
-            ->orderBy('so_ghe')
+ 
+        $seats = Seat::query()
+            ->where('screen_id', $showtime->screen_id)
+            ->with('seatType')
+            ->orderBy('row_index')
+            ->orderBy('column_index')
             ->get();
-
+ 
         $seatsByRow = [];
-
         foreach ($seats as $seat) {
-            $row = $seat->hang_ghe;
-
-            if (!isset($seatsByRow[$row])) {
-                $seatsByRow[$row] = [];
-            }
-
-            $seatsByRow[$row][] = [
-                'id' => $seat->id,
-                'ma' => $seat->ma,
-                'hang_ghe' => $seat->hang_ghe,
-                'so_ghe' => $seat->so_ghe,
-                'loai_ghe' => $seat->seat_type->ten ?? null,
-                'gia_ghe' => (float) ($showtime->gia ?? 0) + (float) ($seat->seat_type->them_gia ?? 0),
-                'is_booked' => in_array($seat->id, $bookedSeats, true),
+            $seatsByRow[$seat->row][] = [
+                'id'           => $seat->id,
+                'label'        => $seat->label,
+                'row'          => $seat->row,
+                'number'       => $seat->number,
+                'row_index'    => $seat->row_index,
+                'column_index' => $seat->column_index,
+                'seat_type'    => $seat->seatType->name ?? null,
+                'price'        => (float) ($showtime->price ?? 0) + (float) ($seat->seatType->surcharge ?? 0),
+                'is_booked'    => in_array($seat->id, $bookedSeatIds, true),
             ];
         }
-
-        return response()->json([
-            'status' => 'success',
-            'data' => [
-                'showtime' => $showtime,
-                'seats' => $seatsByRow,
-                'booked_seats' => $bookedSeats,
-            ],
+ 
+        return $this->ok([
+            'showtime'     => new ShowtimeResource($showtime),
+            'seats'        => $seatsByRow,
+            'booked_seats' => $bookedSeatIds,
         ]);
     }
-
-    public function storeSeatHold(Request $request, Showtimes $showtime)
+ 
+    /**
+     * Giữ ghế tạm thời cho người dùng.
+     * POST /api/showtimes/{showtime}/seat-holds
+     */
+    public function storeSeatHold(Request $request, Showtime $showtime): JsonResponse
     {
         $request->validate([
-            'ghe_id' => ['required', 'integer'],
+            'seat_id' => ['required', 'integer'],
         ]);
-
-        $seat = Seats::query()
-            ->where('id', $request->integer('ghe_id'))
-            ->where('room_id', $showtime->room_id)
+ 
+        $user = auth()->user();
+        if (! $user) {
+            return $this->unauthorized();
+        }
+ 
+        $seat = Seat::query()
+            ->where('id', $request->integer('seat_id'))
+            ->where('screen_id', $showtime->screen_id)
             ->first();
-
-        if (!$seat) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Ghe khong hop le voi suat chieu nay.',
-            ], 422);
+ 
+        if (! $seat) {
+            return $this->error('Ghế không hợp lệ với suất chiếu này.', 422);
         }
-
-        $isBooked = Tickets::query()
-            ->where('suat_chieu_id', $showtime->id)
-            ->where('ghe_id', $seat->id)
-            ->where('trang_thai', '!=', 'cancelled')
-            ->exists();
-
-        if ($isBooked) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Ghe da duoc dat.',
-            ], 409);
+ 
+        try {
+            $expiresAt = $this->seatHoldService->hold($showtime, $seat->id, $user->id);
+        } catch (ValidationException $e) {
+            return $this->error(collect($e->errors())->flatten()->first(), 409);
         }
-
-        $userId = Auth::id();
-        $holdKey = "holding_showtime_{$showtime->id}_seat_{$seat->id}";
-        $expiresAt = now()->addMinutes(10);
-
-        if (Cache::has($holdKey) && Cache::get($holdKey) !== $userId) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Ghe dang duoc giu boi nguoi khac.',
-            ], 409);
-        }
-
-        Cache::put($holdKey, $userId, $expiresAt);
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Giu ghe thanh cong.',
-            'data' => [
-                'showtime_id' => $showtime->id,
-                'seat_id' => $seat->id,
-                'expires_at' => $expiresAt->toISOString(),
-            ],
-        ]);
+ 
+        return $this->ok([
+            'showtime_id' => $showtime->id,
+            'seat_id'     => $seat->id,
+            'expires_at'  => $expiresAt->toISOString(),
+        ], 'Giữ ghế thành công.');
     }
-
-    public function indexProducts()
+ 
+    /**
+     * Lấy danh sách sản phẩm (combo/bắp nước).
+     * GET /api/products
+     */
+    public function indexProducts(): JsonResponse
     {
-        return response()->json([
-            'status' => 'success',
-            'data' => Products::all(),
-        ]);
+        $products = Product::query()
+            ->where('status', Product::STATUS_ACTIVE)
+            ->get(['id', 'name', 'price', 'image_url', 'stock']);
+ 
+        return $this->ok($products);
     }
-
-    public function registerPromotion(Request $request)
+ 
+    /**
+     * Đăng ký mã khuyến mãi vào tài khoản.
+     * POST /api/customer/register-promotion
+     */
+    public function registerPromotion(Request $request): JsonResponse
     {
         $request->validate([
-            'code' => ['required', 'string'],
-            'password' => ['required', 'min:8', 'string'],
+            'code'     => ['required', 'string', 'max:50'],
+            'password' => ['required', 'string'],
         ]);
 
-        $user = $this->customer();
-        if (!$user) {
-            return $this->unauthorizedResponse();
+        $user = auth()->user();
+        if (! $user) {
+            return $this->unauthorized();
         }
 
-        if (!Hash::check($request->password, $user->mat_khau)) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Mat khau khong dung.',
-            ], 422);
+        try {
+            $promotion = $this->promotionService->register(
+                $user, 
+                $request->string('code'), 
+                $request->string('password')
+            );
+        } catch (ValidationException $e) {
+            return $this->error(collect($e->errors())->flatten()->first(), 422);
         }
 
-        $promotion = Promotions::query()
-            ->where('ma_khuyen_mai', $request->string('code'))
-            ->where('trang_thai', true)
-            ->first();
-
-        if (!$promotion) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Ma khuyen mai khong ton tai.',
-            ], 404);
-        }
-
-        if (now()->lt($promotion->ngay_bat_dau) || now()->gt($promotion->ngay_ket_thuc)) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Ma khuyen mai da het han hoac chua co hieu luc.',
-            ], 422);
-        }
-
-        $existing = $user->promotions()
-            ->where('promotions.id', $promotion->id)
-            ->first();
-
-        if ($existing) {
-            if ((int) $existing->pivot->trang_thai === 1) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Ma nay da duoc su dung.',
-                ], 422);
-            }
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Ma da co san trong tai khoan.',
-                'data' => $this->transformPromotion($promotion),
-            ]);
-        }
-
-        $user->promotions()->attach($promotion->id, [
-            'trang_thai' => 0,
-            'so_lan_da_dung' => 0,
-        ]);
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Dang ky ma thanh cong.',
-            'data' => $this->transformPromotion($promotion),
-        ]);
+        return $this->created(new PromotionResource($promotion), 'Đăng ký mã thành công.');
     }
-
-    public function validatePromotion(Request $request)
+ 
+    public function validatePromotion(Request $request): JsonResponse
     {
         $request->validate([
-            'code' => ['required', 'string'],
-            'total_amount' => ['required', 'numeric', 'min:0'],
+            'code'  => ['required', 'string'],
+            'items' => ['required', 'array', 'min:1'],
         ]);
 
-        $user = $this->customer();
-        if (!$user) {
-            return $this->unauthorizedResponse();
+        $user = auth()->user();
+        if (! $user) {
+            return $this->unauthorized();
         }
 
-        $promotion = $user->promotions()
-            ->where('promotions.ma_khuyen_mai', $request->code)
-            ->wherePivot('trang_thai', 0)
-            ->first();
-
-        if (!$promotion) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Ma khong hop le hoac da su dung.',
-            ], 404);
+        $totalAmount = 0;
+        foreach ($request->array('items') as $item) {
+            $totalAmount += (float) ($item['unit_price'] ?? 0) * (int) ($item['quantity'] ?? 1);
         }
 
-        if (now()->lt($promotion->ngay_bat_dau) || now()->gt($promotion->ngay_ket_thuc)) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Ma khuyen mai da het han.',
-            ], 422);
+        try {
+            $discountData = $this->promotionService->calculateDiscount($user, $request->string('code'), $totalAmount);
+        } catch (ValidationException $e) {
+            return $this->error(collect($e->errors())->flatten()->first(), 422);
         }
 
-        $totalAmount = (float) $request->total_amount;
-
-        if ($totalAmount < (float) $promotion->don_toi_thieu) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Chua dat gia tri don hang toi thieu.',
-            ], 422);
-        }
-
-        $discountValue = $promotion->loai_giam_gia === 'phan_tram'
-            ? ($totalAmount * $promotion->gia_tri_giam / 100)
-            : (float) $promotion->gia_tri_giam;
-
-        $finalDiscountValue = min($discountValue, $totalAmount);
-
-        return response()->json([
-            'status' => 'success',
-            'data' => [
-                'promotion_id' => $promotion->id,
-                'discount_type' => $promotion->loai_giam_gia,
-                'discount_value' => $finalDiscountValue,
-                'discount_amount' => $finalDiscountValue,
-                'code' => $promotion->ma_khuyen_mai,
-            ],
-        ]);
+        return $this->ok($discountData);
     }
-
-    public function registeredPromotions()
+ 
+    public function registeredPromotions(): JsonResponse
     {
-        $user = $this->customer();
-        if (!$user) {
-            return $this->unauthorizedResponse();
+        $user = auth()->user();
+        if (! $user) {
+            return $this->unauthorized();
         }
-
+ 
         $promotions = $user->promotions()
-            ->where('promotions.trang_thai', true)
-            ->where('promotions.ngay_bat_dau', '<=', now())
-            ->where('promotions.ngay_ket_thuc', '>=', now())
-            ->wherePivot('trang_thai', 0)
+            ->where('promotions.status', 1)
+            ->where('promotions.start_date', '<=', now())
+            ->where('promotions.end_date', '>=', now())
+            ->wherePivot('status', 1)
             ->get();
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $promotions->map(fn ($promotion) => $this->transformPromotion($promotion)),
-        ]);
+ 
+        return $this->ok(PromotionResource::collection($promotions));
     }
-
-    public function checkout(Request $request, Showtimes $showtime)
+ 
+    /**
+     * Xem điểm tích lũy của khách hàng.
+     * GET /api/customers/me/loyalty-points
+     */
+    public function showMyLoyaltyPoints(): JsonResponse
     {
-        $request->validate([
-            'seats' => ['required', 'array', 'min:1'],
-            'seats.*' => ['integer'],
-            'promotion_id' => ['nullable', 'integer'],
-        ]);
-
-        $user = $this->customer();
-        if (!$user) {
-            return $this->unauthorizedResponse();
+        $user = auth()->user();
+        if (! $user) {
+            return $this->unauthorized();
         }
-
-        return DB::transaction(function () use ($request, $user, $showtime) {
-            $promotion = null;
-
-            if ($request->promotion_id) {
-                $promotion = $user->promotions()
-                    ->where('promotions.id', $request->promotion_id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$promotion || (int) $promotion->pivot->trang_thai === 1) {
-                    throw new \Exception('Ma khuyen mai khong hop le hoac da su dung.');
-                }
-            }
-
-            foreach ($request->seats as $seatId) {
-                Tickets::create([
-                    'suat_chieu_id' => $showtime->id,
-                    'ghe_id' => $seatId,
-                    'user_id' => $user->id,
-                    'trang_thai' => 'booked',
-                ]);
-            }
-
-            if ($promotion) {
-                $user->promotions()->updateExistingPivot($promotion->id, [
-                    'trang_thai' => 1,
-                    'so_lan_da_dung' => DB::raw('so_lan_da_dung + 1'),
-                ]);
-            }
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Dat ve thanh cong.',
-            ]);
-        });
-    }
-
-    public function showMyLoyaltyPoints()
-    {
-        $user = $this->customer();
-        if (!$user) {
-            return $this->unauthorizedResponse();
-        }
-
-        return response()->json([
-            'status' => 'success',
-            'data' => [
-                'points' => $user->diem_tich_luy ?? 0,
-            ],
+ 
+        return $this->ok([
+            'points' => $user->loyalty_points ?? 0,
         ]);
     }
 }

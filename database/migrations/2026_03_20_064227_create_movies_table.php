@@ -6,34 +6,33 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration 
 {
-    /**
-     * Run the migrations.
-     */
+
     public function up(): void
     {
         Schema::create('movies', function (Blueprint $table) {
             $table->id();
-            $table->string('ten_phim');
-            $table->string('slug')->nullable();
-            $table->string('ten_goc')->nullable();
-            $table->string('gia')->default(0); //phụ phí theo phim
-            $table->text('mo_ta')->nullable();
-            $table->integer('thoi_luong')->nullable();
-            $table->date('ngay_khoi_chieu')->nullable();
-            $table->date('ngay_ket_thuc')->nullable();
-            $table->string('do_tuoi')->nullable();
-            $table->string('trang_thai')->nullable();
-            $table->string('dao_dien')->nullable();
-            $table->string('dien_vien')->nullable();
+            $table->string('title');
+            $table->string('slug')->nullable()->unique();
+            $table->string('original_title')->nullable();
+            $table->decimal('surcharge', 15, 2)->default(0); // Phụ phí phim
+            $table->text('description')->nullable();
+            $table->integer('duration')->nullable(); // minutes
+            $table->date('release_date')->nullable();
+            $table->date('end_date')->nullable();
+            $table->string('age_rating', 20)->nullable();
+            $table->tinyInteger('status')->default(1)->comment('0: Private, 1: Showing, 2: Coming Soon, 3: Finished');
+            $table->string('director')->nullable();
+            $table->string('cast')->nullable();
             $table->string('poster_url')->nullable();
             $table->string('trailer_url')->nullable();
+            $table->json('backdrops')->nullable();
+            $table->boolean('is_hot')->default(false);
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
+
     public function down(): void
     {
         Schema::dropIfExists('movies');

@@ -9,35 +9,31 @@ class SeatSeeder extends Seeder
 {
     public function run(): void
     {
-        // Danh sách phòng và số ghế
-        $rooms = DB::table('rooms')->get();
-        $seatTypes = DB::table('seat_types')->get();
+        $screens = \App\Models\Screen::all();
+        $seatTypeStandard = \App\Models\SeatType::where('name', 'Standard')->first();
+        $seatTypeVIP      = \App\Models\SeatType::where('name', 'VIP')->first();
 
-        foreach ($rooms as $room) {
-            // Ví dụ: chia theo loại ghế dựa vào tên phòng
-            if (str_contains($room->loai_phong, 'VIP')) {
-                $type = $seatTypes->where('ma', 'VIP')->first();
-            } elseif (str_contains($room->loai_phong, 'Couple')) {
-                $type = $seatTypes->where('ma', 'COUPLE')->first();
-            } else {
-                $type = $seatTypes->where('ma', 'NORMAL')->first();
-            }
+        foreach ($screens as $screen) {
+            $rows = range('A', 'J'); // Rows A to J
+            
+            foreach ($rows as $rowIndex => $row) {
+                // Each screen has 15 seats per row
+                for ($num = 1; $num <= 15; $num++) {
+                    $type = $seatTypeStandard;
+                    // Hàng E đến H là ghế VIP
+                    if (in_array($row, ['E', 'F', 'G', 'H'])) {
+                        $type = $seatTypeVIP;
+                    }
 
-            $rows = range('A', 'J'); // 10 hàng
-            $cols = range(1, $room->suc_chua / 15); // số ghế mỗi hàng tạm tính
-
-            foreach ($rows as $row) {
-                foreach ($cols as $col) {
-                    $ma_ghe = $room->ma . '-' . $row . $col;
-                    DB::table('seats')->insert([
-                        'room_id' => $room->id,
+                    \App\Models\Seat::create([
+                        'screen_id'    => $screen->id,
                         'seat_type_id' => $type->id,
-                        'hang_ghe' => $row,
-                        'so_ghe' => $col,
-                        'ma' => $ma_ghe,
-                        'trang_thai' => true,
-                        'created_at' => now(),
-                        'updated_at' => now(),
+                        'row'          => $row,
+                        'number'       => (string) $num,
+                        'row_index'    => $rowIndex,
+                        'column_index' => $num,
+                        'label'        => "{$row}{$num}",
+                        'status'       => 1,
                     ]);
                 }
             }

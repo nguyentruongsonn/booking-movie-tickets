@@ -1,13 +1,11 @@
 const MOVIE_TYPES = {
     NOW_SHOWING: 'dang-chieu',
-    COMING_SOON: 'sap-chieu',
-    ALL: 'all'
+    COMING_SOON: 'sap-chieu'
 };
 
 const TITLE_BY_TYPE = {
     [MOVIE_TYPES.NOW_SHOWING]: 'Phim Đang Chiếu',
-    [MOVIE_TYPES.COMING_SOON]: 'Phim Sắp Chiếu',
-    [MOVIE_TYPES.ALL]: 'Tất Cả Phim'
+    [MOVIE_TYPES.COMING_SOON]: 'Phim Sắp Chiếu'
 };
 
 const VI_DAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
@@ -15,8 +13,9 @@ const DAY_PICKER_STYLE_ID = 'day-picker-style';
 const SHOWTIME_BUFFER_MS = 20 * 60 * 1000;
 
 function getCustomerToken() {
-    const token = localStorage.getItem('auth_token');
-    return token && token !== 'undefined' ? token : null;
+    // Token hiện nằm hoàn toàn trong HttpOnly Cookie. 
+    // Trả về 'session_active' nếu có user_name để UI biết trạng thái.
+    return BookingApi.TokenStore.getUserName() ? 'session_active' : null;
 }
 
 function requireCustomerLogin() {
@@ -29,26 +28,22 @@ function requireCustomerLogin() {
 }
 
 function getMovieListEndpoint(type) {
-    if (type === MOVIE_TYPES.ALL) {
-        return '/api/movies';
-    }
-
     if (type === MOVIE_TYPES.NOW_SHOWING) {
-        return '/api/movies/now-showing';
+        return '/movies/now-showing';
     }
 
     if (type === MOVIE_TYPES.COMING_SOON) {
-        return '/api/movies/coming-soon';
+        return '/movies/coming-soon';
     }
 
-    return '/api/movies';
+    return '/movies/now-showing';
 }
 
 function getMovieStatusLabel(movie) {
-    if (movie.dang_chieu) {
+    if (movie.is_showing) {
         return 'Đang chiếu';
     }
-    if (movie.sap_chieu) {
+    if (movie.is_coming_soon) {
         return 'Sắp chiếu';
     }
     return 'Đã chiếu';
@@ -59,10 +54,11 @@ function getMovieCategories(movie) {
         return 'Chưa phân loại';
     }
     return movie.categories
-        .map(category => category.ten_the_loai || category.ten)
+        .map(category => category.name || category.ten)
         .filter(Boolean)
         .join(', ');
 }
+
 // Chuyển đổi đối tượng Date thành chuỗi định dạng YYYY-MM-DD theo múi giờ địa phương
 function toLocalDateKey(date) {
     const year = date.getFullYear();
@@ -98,12 +94,21 @@ function getYoutubeEmbedUrl(url) {
 }
 
 function renderLoadingState(container) {
-    container.innerHTML = `
-        <div class="col-12 text-center py-5">
-            <i class="fa fa-spinner fa-spin fa-3x text-primary mb-3"></i>
-            <p class="text-muted">Đang tải danh sách phim...</p>
-        </div>
-    `;
+    let skeletons = '';
+    for (let i = 0; i < 4; i++) {
+        skeletons += `
+        <div class="col-md-3 mb-4">
+            <div class="saas-card p-0 overflow-hidden h-100 border-0">
+                <div class="skeleton-box w-100" style="height: 320px; border-radius: 0;"></div>
+                <div class="p-3">
+                    <div class="skeleton-box w-75 mb-2" style="height: 20px;"></div>
+                    <div class="skeleton-box w-50 mb-3" style="height: 14px;"></div>
+                    <div class="skeleton-box w-100" style="height: 40px; border-radius: 20px;"></div>
+                </div>
+            </div>
+        </div>`;
+    }
+    container.innerHTML = skeletons;
 }
 
 function renderEmptyState(container) {
@@ -124,29 +129,46 @@ function renderErrorState(container) {
     `;
 }
 
+function getPosterUrl(path) {
+    const fallback = '/images/bg_1.jpg';
+    if (typeof path !== 'string') return fallback;
+    const cleanPath = path.trim();
+    if (!cleanPath) return fallback;
+    
+    if (cleanPath.startsWith('http') || cleanPath.startsWith('//')) {
+        return cleanPath;
+    }
+    
+    if (cleanPath.startsWith('/storage/') || cleanPath.startsWith('storage/')) {
+        return cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+    }
+    
+    return `/storage/${cleanPath}`;
+}
+
 function renderMovieCard(movie) {
-    const duration = movie.thoi_luong || 'Chưa rõ';
+    const duration = movie.duration || 'Chưa rõ';
     const statusLabel = getMovieStatusLabel(movie);
     const categories = getMovieCategories(movie);
     const movieUrl = `/movie/${movie.slug}`;
-    const posterUrl = `/storage/${movie.poster_url}`;
+    const posterUrl = getPosterUrl(movie.poster_url);
 
     return `
-        <div class="col-md-3 mb-3 ftco-animate fadeInUp ftco-animated">
-            <div class="project-wrap">
-                <a href="${movieUrl}" class="img" style="background-image: url('${posterUrl}');">
-                    <span class="price">${statusLabel}</span>
+        <div class="col-md-3 mb-4 ftco-animate fadeInUp ftco-animated">
+            <div class="saas-card p-0 overflow-hidden h-100 d-flex flex-column border-0">
+                <a href="${movieUrl}" class="position-relative d-block w-100" style="height: 320px; background-image: url('${posterUrl}'); background-size: cover; background-position: center;">
+                    <span class="position-absolute top-0 end-0 m-2 badge bg-primary text-white px-3 py-1 radius-md shadow-sm">${statusLabel}</span>
                 </a>
 
-                <div class="text p-4">
-                    <span class="days">${duration} phút</span>
-                    <h3><a href="${movieUrl}">${movie.ten_phim}</a></h3>
-                    <p class="location"><span class="fa fa-tag"></span> ${categories}</p>
-                    <ul>
-                        <li><span class="fa fa-star text-warning"></span> 4.5</li>
-                        <li><span class="fa fa-user"></span> T13</li>
-                        <li><a href="${movieUrl}" class="btn btn-sm btn-primary py-1 px-3 text-white" style="border-radius:20px;">Mua vé</a></li>
-                    </ul>
+                <div class="p-4 d-flex flex-column flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge bg-slate-100 text-slate-700 fw-medium">${duration}</span>
+                        <div class="text-primary small fw-bold"><i class="fa fa-star me-1"></i> 4.5</div>
+                    </div>
+                    <h5 class="fw-bold text-slate-900 mb-2 lh-base"><a href="${movieUrl}" class="text-decoration-none text-reset">${movie.title}</a></h5>
+                    <p class="text-slate-500 small mb-4 flex-grow-1"><i class="fa fa-tag me-1"></i> ${categories}</p>
+                    
+                    <a href="${movieUrl}" class="btn btn-outline-primary w-100 radius-md py-2 fw-bold">Mua vé ngay</a>
                 </div>
             </div>
         </div>
@@ -154,11 +176,11 @@ function renderMovieCard(movie) {
 }
 
 function updateActiveButton(activeType) {
-    ['btn-dang-chieu', 'btn-sap-chieu', 'btn-all'].forEach(id => {
+    ['btn-dang-chieu', 'btn-sap-chieu'].forEach(id => {
         document.getElementById(id)?.classList.remove('active');
     });
 
-    const activeButtonId = activeType === MOVIE_TYPES.ALL ? 'btn-all' : `btn-${activeType}`;
+    const activeButtonId = `btn-${activeType}`;
     document.getElementById(activeButtonId)?.classList.add('active');
 }
 
@@ -172,15 +194,14 @@ async function loadMovies(type = MOVIE_TYPES.NOW_SHOWING) {
     renderLoadingState(container);
 
     try {
-        const response = await fetch(getMovieListEndpoint(type), {
-            headers: { Accept: 'application/json' }
-        });
+        const response = await BookingApi.apiFetch(getMovieListEndpoint(type));
+        const result = await response.json();
 
-        if (!response.ok) {
-            throw new Error('Lỗi kết nối API');
+        if (result.status !== 'success') {
+            throw new Error(result.message || 'Lỗi không xác định');
         }
 
-        const movies = await response.json();
+        const movies = result.data;
         if (!Array.isArray(movies) || movies.length === 0) {
             renderEmptyState(container);
             return;
@@ -190,6 +211,30 @@ async function loadMovies(type = MOVIE_TYPES.NOW_SHOWING) {
     } catch (error) {
         console.error('Lỗi khi tải dữ liệu phim:', error);
         renderErrorState(container);
+    }
+}
+
+async function fetchMovieDetail() {
+    if (typeof movieSlug === 'undefined' || !movieSlug) {
+        console.error('Không tìm thấy ID phim từ URL.');
+        return;
+    }
+
+    try {
+        const response = await BookingApi.apiFetch(`/movies/${movieSlug}`);
+        const result = await response.json();
+
+        if (result.status !== 'success') {
+            throw new Error(result.message || 'Lỗi không xác định');
+        }
+
+        updateMovieDetail(result.data);
+    } catch (error) {
+        console.error('Lỗi khi tải dữ liệu phim:', error);
+        const detailName = document.getElementById('det-name-detail');
+        if (detailName) {
+            detailName.innerText = 'Không thể tải thông tin phim.';
+        }
     }
 }
 
@@ -276,7 +321,7 @@ function renderShowtimesByFormat(showtimes, container) {
 
     const now = Date.now();
     const groupedByFormat = showtimes.reduce((accumulator, showtime) => {
-        const formatName = showtime.format?.ten || 'Mặc định';
+        const formatName = showtime.screen?.name || showtime.format?.name || 'Mặc định';
         if (!accumulator[formatName]) {
             accumulator[formatName] = [];
         }
@@ -286,10 +331,10 @@ function renderShowtimesByFormat(showtimes, container) {
 
     const html = Object.entries(groupedByFormat).map(([formatName, items]) => {
         const buttons = items
-            .sort((a, b) => new Date(a.ngay_gio_chieu) - new Date(b.ngay_gio_chieu))
-            .filter(showtime => new Date(showtime.ngay_gio_chieu).getTime() - now > SHOWTIME_BUFFER_MS)
+            .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))
+            .filter(showtime => new Date(showtime.scheduled_at).getTime() - now > SHOWTIME_BUFFER_MS)
             .map(showtime => {
-                const time = new Date(showtime.ngay_gio_chieu).toLocaleTimeString('vi-VN', {
+                const time = new Date(showtime.scheduled_at).toLocaleTimeString('vi-VN', {
                     hour: '2-digit',
                     minute: '2-digit',
                     hour12: false
@@ -339,7 +384,7 @@ function setupWeeklyDatePicker(showtimes) {
     ensureDayPickerStyles();
 
     const groupedByDate = (Array.isArray(showtimes) ? showtimes : []).reduce((accumulator, showtime) => {
-        const key = toLocalDateKey(new Date(showtime.ngay_gio_chieu));
+        const key = toLocalDateKey(new Date(showtime.scheduled_at));
         if (!accumulator[key]) {
             accumulator[key] = [];
         }
@@ -422,13 +467,13 @@ function setupTrailerModal(movie) {
 }
 
 function updateMovieDetail(movie) {
-    document.getElementById('det-name-detail').innerText = movie.ten_phim;
-    document.getElementById('det-director').innerText = movie.dao_dien || 'Đang cập nhật';
-    document.getElementById('det-actors').innerText = movie.dien_vien || 'Đang cập nhật';
-    document.getElementById('det-desc').innerHTML = movie.mo_ta || 'Thông tin mô tả đang được cập nhật...';
-    document.getElementById('det-duration').innerText = movie.thoi_luong || 'Đang cập nhật';
-    document.getElementById('det-start-date').innerText = movie.ngay_khoi_chieu
-        ? new Date(movie.ngay_khoi_chieu).toLocaleDateString('vi-VN')
+    document.getElementById('det-name-detail').innerText = movie.title;
+    document.getElementById('det-director').innerText = movie.director || 'Đang cập nhật';
+    document.getElementById('det-actors').innerText = movie.cast || 'Đang cập nhật';
+    document.getElementById('det-desc').innerHTML = movie.description || 'Thông tin mô tả đang được cập nhật...';
+    document.getElementById('det-duration').innerText = movie.duration || 'Đang cập nhật';
+    document.getElementById('det-start-date').innerText = movie.release_date
+        ? new Date(movie.release_date).toLocaleDateString('vi-VN')
         : 'Đang cập nhật';
 
     const categoriesElement = document.getElementById('det-categories');
@@ -436,7 +481,7 @@ function updateMovieDetail(movie) {
         categoriesElement.innerText = getMovieCategories(movie);
     }
 
-    const imageUrl = movie.poster_url ? `/storage/${movie.poster_url}` : '/images/movie_bg.jpg';
+    const imageUrl = getPosterUrl(movie.poster_url);
     const posterImage = document.getElementById('det-poster');
     const bannerSection = document.getElementById('movie-banner');
 
@@ -451,31 +496,6 @@ function updateMovieDetail(movie) {
     setupTrailerModal(movie);
 }
 
-async function fetchMovieDetail() {
-    if (typeof movieSlug === 'undefined' || !movieSlug) {
-        console.error('Không tìm thấy ID phim từ URL.');
-        return;
-    }
-
-    try {
-        const response = await fetch(`/api/movies/${movieSlug}`, {
-            headers: { Accept: 'application/json' }
-        });
-
-        if (!response.ok) {
-            throw new Error('Lỗi kết nối API');
-        }
-
-        const movie = await response.json();
-        updateMovieDetail(movie);
-    } catch (error) {
-        console.error('Lỗi khi tải dữ liệu phim:', error);
-        const detailName = document.getElementById('det-name-detail');
-        if (detailName) {
-            detailName.innerText = 'Không thể tải thông tin phim.';
-        }
-    }
-}
 
 document.addEventListener('DOMContentLoaded', () => {
     setupShowtimeAuthGuard();
@@ -490,3 +510,5 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.loadMovies = loadMovies;
+
+

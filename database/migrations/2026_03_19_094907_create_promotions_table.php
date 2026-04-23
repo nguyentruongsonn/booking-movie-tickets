@@ -6,32 +6,34 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
+
     public function up(): void
     {
         Schema::create('promotions', function (Blueprint $table) {
             $table->id();
-            $table->string('ma_khuyen_mai')->unique();
-            $table->string('ten_khuyen_mai');
-            $table->string('loai_khuyen_mai')->nullable();
-            $table->string('mo_ta')->nullable();
-            $table->enum('loai_giam_gia',['phan_tram','so_tien']);
-            $table->decimal('gia_tri_giam',10,2);
-            $table->decimal('don_toi_thieu',10,2);
-            $table->dateTime('ngay_bat_dau');
-            $table->dateTime('ngay_ket_thuc');
-            $table->integer('so_lan_su_dung')->default(0);
-            $table->integer('so_lan_su_dung_moi_ngay')->default(0);
-            $table->boolean('trang_thai')->default(true);
+            $table->string('code')->unique();
+            $table->string('name');
+            $table->string('category')->nullable()->comment('public, private, etc.');
+            $table->string('description', 500)->nullable();
+            
+            $table->enum('discount_type', ['percentage', 'fixed_amount']);
+            $table->decimal('discount_value', 15, 2);
+            $table->decimal('min_order_value', 15, 2)->default(0);
+            $table->decimal('max_discount_amount', 15, 2)->nullable();
+
+            $table->dateTime('start_date');
+            $table->dateTime('end_date');
+            
+            $table->integer('usage_limit')->nullable();
+            $table->integer('usage_count')->default(0);
+            $table->integer('daily_usage_limit')->nullable();
+            
+            $table->boolean('status')->default(true);
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
+
     public function down(): void
     {
         Schema::dropIfExists('promotions');

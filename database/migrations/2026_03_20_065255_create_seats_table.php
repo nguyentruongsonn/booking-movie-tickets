@@ -13,21 +13,21 @@ return new class extends Migration
     {
         Schema::create('seats', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('room_id')->constrained('rooms')->onDelete('cascade');
+            $table->foreignId('screen_id')->constrained('screens')->onDelete('cascade');
             $table->foreignId('seat_type_id')->constrained('seat_types')->onDelete('cascade');
-            $table->string('hang_ghe');
-            $table->string('so_ghe');
-            $table->string('ma',20)->unique();
-            $table->boolean('trang_thai')->default(true);
+            $table->string('row', 10); // e.g. A, B
+            $table->string('number', 10); // e.g. 1, 2
+            $table->integer('row_index')->default(0);
+            $table->integer('column_index')->default(0);
+            $table->string('label', 20)->nullable(); // e.g. A1
+            $table->tinyInteger('status')->default(1)->comment('0: Broken, 1: Active');
             $table->timestamps();
 
-            $table->index(['room_id','hang_ghe','so_ghe']);
+            $table->index(['screen_id', 'row', 'number']);
         });
     }
 
-    /**a
-     * Reverse the migrations.
-     */
+
     public function down(): void
     {
         Schema::dropIfExists('seats');

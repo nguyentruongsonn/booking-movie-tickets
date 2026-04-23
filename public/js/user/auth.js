@@ -1,27 +1,33 @@
-const AUTH_STORAGE_KEY = 'auth_token';
 const AUTH_USER_NAME_KEY = 'user_name';
-let refreshPromise = null;
 
 function getAuthToken() {
-    const token = localStorage.getItem(AUTH_STORAGE_KEY);
-    return token && token !== 'undefined' ? token : null;
+    return localStorage.getItem(AUTH_USER_NAME_KEY) ? 'session_active' : null;
 }
 
+function showAuthAlert(message, type = 'error') {
+    const alertEl = document.getElementById('auth-alert');
+    if (!alertEl) return;
+    
+    alertEl.textContent = message;
+    alertEl.className = `auth-alert ${type}`;
+    alertEl.classList.remove('d-none');
+    
+    setTimeout(() => {
+        alertEl.classList.add('d-none');
+    }, 5000);
+}
+ 
 function setAuthState(token, userName = '') {
-    localStorage.setItem(AUTH_STORAGE_KEY, token);
-
     if (userName) {
-        localStorage.setItem(AUTH_USER_NAME_KEY, userName);
+        BookingApi.TokenStore.setUserName(userName);
     } else {
-        localStorage.removeItem(AUTH_USER_NAME_KEY);
+        BookingApi.TokenStore.clear();
     }
-
     updateNavigationAuthUI(true, userName);
 }
 
 function clearAuthState() {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    localStorage.removeItem(AUTH_USER_NAME_KEY);
+    BookingApi.TokenStore.clear();
     updateNavigationAuthUI(false);
 }
 
@@ -36,7 +42,7 @@ function updateNavigationAuthUI(isLoggedIn, userName = '') {
     }
 
     if (nameEl) {
-        nameEl.textContent = isLoggedIn ? userName || localStorage.getItem(AUTH_USER_NAME_KEY) || '' : '';
+        nameEl.textContent = isLoggedIn ? userName || BookingApi.TokenStore.getUserName() || '' : '';
     }
 }
 
@@ -55,112 +61,29 @@ async function parseJsonResponse(response) {
     }
 }
 
-function buildApiUrl(url) {
-    return url.startsWith('/api') ? url : `/api${url.startsWith('/') ? '' : '/'}${url}`;
-}
-
-async function refreshAccessToken() {
-    if (!refreshPromise) {
-        refreshPromise = (async () => {
-            const response = await fetch('/api/auth/refresh-token', {
-                method: 'POST',
-                credentials: 'include',
-                headers: {
-                    'Accept': 'application/json',
-                },
-            });
-
-            const result = await parseJsonResponse(response);
-
-            if (!response.ok || result?.status !== 'success' || !result?.token) {
-                throw new Error(result?.message || 'Khong the lam moi token');
-            }
-
-            const currentName = localStorage.getItem(AUTH_USER_NAME_KEY) || '';
-            setAuthState(result.token, currentName); // Lưu token và cập nhật UI
-
-            return result.token;
-        })();
-
-        refreshPromise.finally(() => {
-            refreshPromise = null;
-        });
-    }
-
-    return refreshPromise;
-}
-
 async function myFetch(url, options = {}) {
-    const finalUrl = buildApiUrl(url);
-    const token = getAuthToken();
-    const headers = {
-        'Accept': 'application/json',
-        ...options.headers, // lấy tất cả các cặp key - value trong options.header
-    };
-
-    //Kiểm tra dữ liệ gửi đi có phải lầ formdate ?
-    if (!(options.body instanceof FormData) && !headers['Content-Type']) {
-        headers['Content-Type'] = 'application/json';
-    }
-
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const requestOptions = {
-        ...options,
-        headers,
-        credentials: 'include',
-    };
-
-    let response = await fetch(finalUrl, requestOptions);
-
-    //Nếu token còn hạn
-    if (response.status !== 401 || finalUrl.includes('refresh-token')) {
-        return response;
-    }
-
-    try {
-        const newToken = await refreshAccessToken();
-        const retryHeaders = {
-            ...headers,
-            Authorization: `Bearer ${newToken}`,
-        };
-
-        response = await fetch(finalUrl, {
-            ...requestOptions,
-            headers: retryHeaders,
-        });
-    } catch (error) {
-        console.error('Refresh token that bai', error);
-        handleLogoutForce();
-        throw error;
-    }
-
-    return response;
+    return BookingApi.apiFetch(url, options);
 }
 
 //Kiểm tra phiên đăng nhập
 async function syncAuthState() {
     const token = getAuthToken();
-
+ 
     if (!token) {
         updateNavigationAuthUI(false);
         return;
     }
-
+ 
     try {
-        const response = await myFetch('/auth/me', {
-            method: 'GET',
-        });
-
-        if (!response.ok) {
-            throw new Error('Khong the xac thuc phien dang nhap');
+        const response = await myFetch('/auth/me');
+        const result = await response.json();
+ 
+        if (result.status === 'success') {
+            const userName = result.data?.full_name || '';
+            setAuthState('session_active', userName);
+        } else {
+            clearAuthState();
         }
-
-        const result = await parseJsonResponse(response);
-        const userName = result?.data?.ho_ten || localStorage.getItem(AUTH_USER_NAME_KEY) || '';
-        setAuthState(getAuthToken(), userName);
     } catch (error) {
         console.error('Dong bo trang thai dang nhap that bai', error);
         clearAuthState();
@@ -172,27 +95,25 @@ async function syncAuthState() {
 async function handleRegister(event) {
     event.preventDefault(); // Xử lý sự kiện mà không bị load
     const $btn = $('#btn-register');
+    
+    // Thu thập dữ liệu theo English Schema
     const formData = {
-        email: $('#register-email').val(),
-        mat_khau: $('#register-password').val(),
-        mat_khau_confirmation: $('#register-confirm-password').val(),
-        ho_ten: $('#register-name').val(),
-        so_dien_thoai: $('#register-phone').val(),
-        gioi_tinh: $('#register-gender').val(),
-        ngay_sinh: $('#register-birthday').val(),
-        _token: $('input[name="_token"]').val(),
+        email:                 $('#register-email').val(),
+        password:              $('#register-password').val(),
+        password_confirmation: $('#register-confirm-password').val(),
+        full_name:             $('#register-name').val(),
+        phone:                 $('#register-phone').val(),
+        gender:                $('#register-gender').val(),
+        birthday:              $('#register-birthday').val(),
+        _token:                $('input[name="_token"]').val(),
     };
 
     $btn.prop('disabled', true).text('Dang dang ky ...');
 
     try {
-        const res = await fetch('/api/auth/register', {
+        const res = await myFetch('/auth/register', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': formData._token,
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData),
         });
 
@@ -201,23 +122,24 @@ async function handleRegister(event) {
         if (res.ok && result?.status === 'success') {
             switchTab('login');
             $('#login-email').val(formData.email);
-            $('#register-form')[0].reset();
+            $('#form-register')[0].reset();
+            showAuthAlert('Đăng ký thành công! Vui lòng đăng nhập.', 'success');
             return;
         }
 
-        //dữ liệu sai hoặc thiếu
+        // dữ liệu sai hoặc thiếu (Validation error)
         if (res.status === 422 && result?.errors) {
-            const errorMessage = Object.values(result.errors).flat().join('\n');
-            alert(errorMessage);
+            const errorList = Object.values(result.errors).flat();
+            showAuthAlert("Lỗi: " + errorList.join(', '));
             return;
         }
-
-        alert(result?.message || 'Dang ky that bai, vui long kiem tra lai.');
+ 
+        showAuthAlert(result?.message || 'Đăng ký thất bại.');
     } catch (error) {
         console.error('Error:', error);
-        alert('Co loi xay ra, vui long thu lai sau.');
+        showAuthAlert('Có lỗi kết nối máy chủ.');
     } finally {
-        $btn.prop('disabled', false).text('Dang ky');
+        $btn.prop('disabled', false).text('Tao Tai Khoan');
     }
 }
 
@@ -225,30 +147,26 @@ async function handleLogin(event) {
     event.preventDefault();
     const $btn = $('#btn-login');
     const formData = {
-        email: $('#login-email').val(),
-        mat_khau: $('#login-password').val(),
+        email:       $('#login-email').val(),
+        password:    $('#login-password').val(),
         device_name: navigator.userAgent,
-        _token: $('input[name="_token"]').val(),
+        _token:      $('input[name="_token"]').val(),
     };
 
     $btn.prop('disabled', true).text('Dang dang nhap ...');
 
     try {
-        const res = await fetch('/api/auth/login', {
+        const res = await myFetch('/auth/login', {
             method: 'POST',
-            credentials: 'include',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': formData._token,
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData),
         });
 
         const result = await parseJsonResponse(res);
 
-        if (res.ok && result?.status === 'success' && result?.token) {
-            setAuthState(result.token, result.user?.ho_ten || '');
+        if (res.ok && result?.status === 'success') {
+            const userName = result.data?.user?.full_name || '';
+            setAuthState('session_active', userName);
             $('#authModal').modal('hide');
             alert('Dang nhap thanh cong');
             return;
@@ -276,15 +194,8 @@ async function handleLogout(event) {
     $btn.prop('disabled', true).text('Dang dang xuat ...');
 
     try {
-        const res = await fetch('/api/auth/logout', {
+        const res = await myFetch('/auth/logout', {
             method: 'POST',
-            credentials: 'include',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Authorization': token ? `Bearer ${token}` : '',
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
-            },
         });
 
         if (!res.ok && res.status !== 401) {
@@ -316,7 +227,7 @@ function handleGoogleSignIn(element) {
         const result = event.data;
 
         if (result?.status === 'success' && result?.token) {
-            setAuthState(result.token, result.user?.ho_ten || '');
+            setAuthState(result.token, result.user?.full_name || '');
             $('#authModal').modal('hide');
             alert('Dang nhap Google thanh cong!');
         }
@@ -345,6 +256,17 @@ function switchTab(tab) {
 document.addEventListener('DOMContentLoaded', function () {
     updateNavigationAuthUI(Boolean(getAuthToken()), localStorage.getItem(AUTH_USER_NAME_KEY) || '');
     syncAuthState();
+    
+    // Tự động mở modal đăng nhập nếu có tham số ?login=1
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('login') === '1') {
+        if (document.getElementById('authModal')) {
+            $('#authModal').modal('show');
+            setTimeout(() => {
+                showAuthAlert('Vui lòng đăng nhập để tiếp tục.', 'error');
+            }, 300);
+        }
+    }
 });
 
 setInterval(async () => {

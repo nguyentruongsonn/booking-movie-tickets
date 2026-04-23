@@ -19,22 +19,21 @@ class RedirectIfAuthenticated
         $guards = empty($guard) ? [null] : $guard;
 
         foreach ($guards as $g) {
-            if (! Auth::guard($g)->check()) {
+            // Chỉ kiểm tra nếu guard được định nghĩa trong config/auth.php hoặc là null (mặc định)
+            if ($g && !config("auth.guards.$g")) {
                 continue;
             }
 
-            if (in_array($g, ['api', 'customer'], true)) {
-                return response()->json([
-                    'message' => 'Ban da dang nhap roi',
-                    'status' => 409,
-                ], 409);
-            }
+            if (Auth::guard($g)->check()) {
+                if ($request->expectsJson() || $request->is('api/*')) {
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => 'Bạn đã đăng nhập rồi.',
+                    ], 409);
+                }
 
-            if ($g === 'employee') {
-                return redirect()->route('admin.dashboard');
+                return redirect('/');
             }
-
-            return redirect('/');
         }
 
         return $next($request);

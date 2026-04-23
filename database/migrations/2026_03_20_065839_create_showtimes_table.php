@@ -6,29 +6,27 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
+
     public function up(): void
     {
         Schema::create('showtimes', function (Blueprint $table) {
             $table->id();
             $table->foreignId('movie_id')->constrained('movies')->onDelete('cascade');
-            $table->foreignId('room_id')->constrained('rooms')->onDelete('cascade');
+            $table->foreignId('screen_id')->constrained('screens')->onDelete('cascade');
             $table->foreignId('format_id')->constrained('formats')->onDelete('cascade');
             $table->foreignId('sound_id')->constrained('sounds')->onDelete('cascade');
             $table->foreignId('subtitle_id')->constrained('subtitles')->onDelete('cascade');
-            $table->dateTime('ngay_gio_chieu');
-            $table->decimal('gia',10,2);
-            $table->enum('trang_thai',['con_ve','het_ve','da_chieu','da_huy'])->default('con_ve');
+            $table->timestamp('scheduled_at');
+            $table->decimal('price', 15, 2);
+            $table->tinyInteger('status')->default(1)->comment('0: Cancelled, 1: Available, 2: Sold Out, 3: Finished');
             $table->timestamps();
-            $table->index(['movie_id','room_id','ngay_gio_chieu']);
+            $table->softDeletes();
+            
+            $table->index(['movie_id', 'screen_id', 'scheduled_at']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
+
     public function down(): void
     {
         Schema::dropIfExists('showtimes');

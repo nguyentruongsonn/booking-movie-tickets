@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
-use App\Models\Price_rules;
+use App\Models\PriceRule;
 use Illuminate\Http\Request;
 
 class PriceRulesController extends Controller
@@ -35,7 +35,7 @@ class PriceRulesController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Price_rules $price_rules)
+    public function show(PriceRule $price_rules)
     {
         //
     }
@@ -43,7 +43,7 @@ class PriceRulesController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Price_rules $price_rules)
+    public function edit(PriceRule $price_rules)
     {
         //
     }
@@ -51,7 +51,7 @@ class PriceRulesController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Price_rules $price_rules)
+    public function update(Request $request, PriceRule $price_rules)
     {
         //
     }
@@ -59,7 +59,7 @@ class PriceRulesController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Price_rules $price_rules)
+    public function destroy(PriceRule $price_rules)
     {
         //
     }

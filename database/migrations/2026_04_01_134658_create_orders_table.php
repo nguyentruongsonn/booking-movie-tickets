@@ -6,28 +6,36 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
+
     public function up(): void
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
-            $table->string('ma_don_hang')->unique();
-            $table->bigInteger('order_code')->unique();
-            $table->foreignId('customer_id')->constrained('customers')->onDelete('cascade');
-            $table->foreignId('suat_chieu_id')->constrained('showtimes')->onDelete('cascade');
-            $table->decimal('tong_tien', 15, 2);
+            $table->string('code')->unique();
+            $table->bigInteger('gateway_order_code')->unique();
+            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('showtime_id')->constrained('showtimes')->onDelete('cascade');
+            $table->decimal('total_amount', 15, 2);
             $table->json('payload')->nullable();
-            $table->enum('trang_thai', ['pending', 'paid', 'cancelled', 'expired'])->default('pending');
+            
+            // Status & Payment
+            $table->tinyInteger('status')->default(1)->comment('0: Cancelled, 1: Pending, 2: Paid, 3: Refunded, 4: Expired');
+            $table->string('payment_provider', 30)->nullable();
+            $table->string('payment_status', 30)->default('created');
+            $table->text('checkout_url')->nullable();
+
+            $table->timestamp('paid_at')->nullable();
+            $table->timestamp('cancelled_at')->nullable();
+            $table->timestamp('expired_at')->nullable();
 
             $table->timestamps();
+            $table->softDeletes();
+
+            $table->index(['user_id', 'status']);
+            $table->index(['showtime_id', 'status']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('orders');

@@ -3,45 +3,70 @@
 namespace App\Http\Controllers\Socialite;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Models\User;
+use App\Models\Role;
+use App\Traits\AuthenticatesUsers;
+use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
-use App\Models\Customers;
-use Illuminate\Support\Facades\Auth;
+
 class ProviderCallbackController extends Controller
 {
+    use AuthenticatesUsers;
+
     public function __invoke(string $provider)
     {
-        if (!in_array($provider, ['google', 'github', 'facebook'])) {
-            return redirect()->route('auth.login')->with('error', 'Provider không hợp lệ');
+        try {
+            if (!in_array($provider, ['google', 'github', 'facebook'])) {
+                return redirect()->route('home')->with('error', 'Provider không hợp lệ');
+            }
+
+            // Lấy thông tin người dùng từ socialite
+            $socialUser = Socialite::driver($provider)->stateless()->user();
+
+            // Sử dụng model User (English Schema)
+            $user = User::updateOrCreate([
+                'email' => $socialUser->getEmail()
+            ], [
+                'full_name'      => $socialUser->getName(),
+                'provider_id'    => $socialUser->getId(),
+                'provider_name'  => $provider,
+                'status'         => User::STATUS_ACTIVE,
+                'provider_token' => $socialUser->token,
+            ]);
+
+            // Gán role customer nếu chưa có
+            if (!$user->hasRole('customer')) {
+                $customerRole = Role::where('name', 'customer')->first();
+                if ($customerRole) {
+                    $user->roles()->syncWithoutDetaching([$customerRole->id]);
+                }
+            }
+
+            // Cấp phát JWT và Cookie (chuẩn hiện đại)
+            $tokens = $this->issueJwtTokens($user, 'Social Login');
+
+            // Trả về script để đóng popup và thông báo cho cửa sổ cha
+            $response = response("<script>
+                if (window.opener) {
+                    window.opener.postMessage({
+                        status: 'success',
+                        token: 'session_active',
+                        user: " . json_encode([
+                            'id' => $user->id,
+                            'full_name' => $user->full_name
+                        ]) . "
+                    }, window.location.origin);
+                    window.close();
+                } else {
+                    window.location.href = '/';
+                }
+            </script>");
+
+            return $this->setAuthCookies($response, $tokens);
+
+        } catch (\Exception $e) {
+            Log::error("Social Login Error (\$provider): " . $e->getMessage());
+            return redirect()->route('home')->with('error', 'Đăng nhập thất bại.');
         }
-
-        //Lấy thông tin người dùng từ socialite
-        $socialUser = Socialite::driver($provider)->stateless()->user();
-
-        $customer = Customers::updateOrCreate([
-            'email' => $socialUser->getEmail()
-        ], [
-            'ho_ten' => $socialUser->getName(),
-            'email' => $socialUser->getEmail(),
-            'provider_id' => $socialUser->getId(),
-            'email_verified_at' => now(),
-            'provider_name' => $provider,
-            'provider_token' => $socialUser->token,
-            'provider_refresh_token' => $socialUser->refreshToken,
-        ]);
-        $customer->tokens()->delete();
-
-        $token = $customer->createToken('auth_token')->plainTextToken;
-
-
-
-        return response("<script>
-        window.opener.postMessage({
-            status: 'success',
-            token: '$token',
-            user: " . json_encode($customer) . "
-        }, window.location.origin);
-        window.close();
-    </script>");
     }
 }

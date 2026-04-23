@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Customer_promotion;
+use App\Models\CustomerPromotion;
 use Illuminate\Http\Request;
 
 class CustomerPromotionController extends Controller
@@ -34,7 +34,7 @@ class CustomerPromotionController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Customer_promotion $customer_promotion)
+    public function show(CustomerPromotion $customer_promotion)
     {
         //
     }
@@ -42,7 +42,7 @@ class CustomerPromotionController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Customer_promotion $customer_promotion)
+    public function edit(CustomerPromotion $customer_promotion)
     {
         //
     }
@@ -50,7 +50,7 @@ class CustomerPromotionController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Customer_promotion $customer_promotion)
+    public function update(Request $request, CustomerPromotion $customer_promotion)
     {
         //
     }
@@ -58,7 +58,7 @@ class CustomerPromotionController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Customer_promotion $customer_promotion)
+    public function destroy(CustomerPromotion $customer_promotion)
     {
         //
     }

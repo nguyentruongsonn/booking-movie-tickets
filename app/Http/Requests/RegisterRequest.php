@@ -16,28 +16,28 @@ class RegisterRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'ho_ten' => 'required|string|max:100',
-            'email' => 'required|email|unique:customers,email',
-            'mat_khau' => 'required|string|min:6|confirmed',
-            'mat_khau_confirmation' => 'required',
-            'ngay_sinh' => 'nullable|date',
-            'gioi_tinh' => 'nullable|string|max:20',
-            'so_dien_thoai' => 'nullable|string|max:15',
+            'full_name'             => ['required', 'string', 'max:100'],
+            'email'                => ['required', 'email:rfc', 'unique:users,email'],
+            'password'             => ['required', 'string', 'min:6', 'confirmed'],
+            'password_confirmation' => ['required'],
+            'birthday'             => ['nullable', 'date', 'before:today'],
+            'gender'               => ['nullable', 'string', 'in:Male,Female,Other,Nam,Nữ,Khác'],
+            'phone'                => ['nullable', 'string', 'max:15', 'regex:/^[0-9+\-\s]+$/'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'ho_ten.required' => 'Vui long nhap ho ten',
-            'email.required' => 'Vui long nhap email',
-            'email.email' => 'Email khong hop le',
-            'email.unique' => 'Email da ton tai',
-            'mat_khau.required' => 'Vui long nhap mat khau',
-            'mat_khau.min' => 'Mat khau phai it nhat 6 ky tu',
-            'mat_khau.confirmed' => 'Xac nhan mat khau khong khop',
-            'mat_khau_confirmation.required' => 'Vui long xac nhan mat khau',
-            'ngay_sinh.date' => 'Ngay sinh khong hop le',
+            'full_name.required' => 'Vui lòng nhập họ tên.',
+            'email.required'     => 'Vui lòng nhập email.',
+            'email.email'        => 'Email không hợp lệ.',
+            'email.unique'       => 'Email đã tồn tại.',
+            'password.required'  => 'Vui lòng nhập mật khẩu.',
+            'password.min'       => 'Mật khẩu phải ít nhất 8 ký tự.',
+            'password.confirmed' => 'Xác nhận mật khẩu không khớp.',
+            'password_confirmation.required' => 'Vui lòng xác nhận mật khẩu.',
+            'birthday.date'      => 'Ngày sinh không hợp lệ.',
         ];
     }
 
@@ -58,10 +58,19 @@ class RegisterRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $genderMap = [
+            'Nam'  => 'Male',
+            'Nữ'   => 'Female',
+            'Khác' => 'Other',
+        ];
+ 
+        $rawGender = $this->gender ? trim($this->gender) : null;
+        $mappedGender = $genderMap[$rawGender] ?? $rawGender;
+ 
         $this->merge([
-            'email' => $this->cleanEmail($this->email),
-            'ho_ten' => $this->cleanName($this->ho_ten),
-            'gioi_tinh' => $this->gioi_tinh ? Str::title(trim($this->gioi_tinh)) : null,
+            'email'     => $this->cleanEmail($this->email),
+            'full_name'   => $this->cleanName($this->full_name),
+            'gender'    => $mappedGender ? \Illuminate\Support\Str::title($mappedGender) : null,
         ]);
     }
 }

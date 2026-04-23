@@ -279,7 +279,6 @@
       <div class="movie-filter-bar text-center">
         <button type="button" class="movie-filter-pill active" id="btn-dang-chieu" onclick="loadMovies('dang-chieu')">Đang Chiếu</button>
         <button type="button" class="movie-filter-pill" id="btn-sap-chieu" onclick="loadMovies('sap-chieu')">Sắp Chiếu</button>
-        <button type="button" class="movie-filter-pill" id="btn-all" onclick="loadMovies('all')">Tất Cả Phim</button>
       </div>
 
       <div class="row" id="movie-list-container">

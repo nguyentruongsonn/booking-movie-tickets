@@ -8,23 +8,24 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('customer_promotion', function (Blueprint $table) {
+        Schema::create('user_promotion', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('customer_id')->constrained('customers')->onDelete('cascade');
+            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('promotion_id')->constrained('promotions')->onDelete('cascade');
 
-            $table->tinyInteger('trang_thai')->default(0);
-            $table->timestamp('ngay_su_dung')->nullable();
-            $table->unsignedBigInteger('booking_id')->nullable();
-            $table->integer('so_lan_da_dung')->default(0);
+            $table->tinyInteger('status')->default(1)->comment('0: Used, 1: Available');
+            $table->timestamp('used_at')->nullable();
+            $table->unsignedBigInteger('order_id')->nullable();
+            $table->integer('usage_count')->default(0);
             $table->timestamps();
-            $table->index(['customer_id', 'promotion_id', 'trang_thai']);
+
+            $table->index(['user_id', 'promotion_id', 'status']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('customer_promotion');
+        Schema::dropIfExists('user_promotion');
     }
 };
 

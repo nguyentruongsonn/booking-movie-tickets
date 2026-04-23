@@ -2,42 +2,33 @@
 
 namespace Database\Seeders;
 
+use App\Models\SeatType;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class SeatTypeSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::table('seat_types')->insert([
+        $types = [
             [
-                'ten' => 'Ghế thường',
-                'ma' => 'NORMAL',
-                'them_gia' => 0, // không phụ thu
-                'created_at' => now(),
-                'updated_at' => now(),
+                'name' => 'Standard',
+                'surcharge' => 0,
+                'color' => '#808080',
             ],
             [
-                'ten' => 'Ghế VIP',
-                'ma' => 'VIP',
-                'them_gia' => 30000, // phụ thu +30k
-                'created_at' => now(),
-                'updated_at' => now(),
+                'name' => 'VIP',
+                'surcharge' => 20000,
+                'color' => '#FF0000',
             ],
             [
-                'ten' => 'Ghế đôi (Couple)',
-                'ma' => 'COUPLE',
-                'them_gia' => 80000, // phụ thu +80k
-                'created_at' => now(),
-                'updated_at' => now(),
+                'name' => 'Sweetbox',
+                'surcharge' => 50000,
+                'color' => '#FFC0CB',
             ],
-            [
-                'ten' => 'Ghế Deluxe',
-                'ma' => 'DELUXE',
-                'them_gia' => 50000, // phụ thu +50k
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-        ]);
+        ];
+
+        foreach ($types as $type) {
+            SeatType::firstOrCreate(['name' => $type['name']], $type);
+        }
     }
 }

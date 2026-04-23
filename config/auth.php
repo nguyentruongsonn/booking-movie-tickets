@@ -12,87 +12,37 @@ return [
      */
 
     'defaults' => [
-        'guard' => env('AUTH_GUARD', 'customer'),
-        'passwords' => env('AUTH_PASSWORD_BROKER', 'customers'),
+        'guard' => env('AUTH_GUARD', 'web'),
+        'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
     ],
-
-    /*
-     |--------------------------------------------------------------------------
-     | Authentication Guards
-     |--------------------------------------------------------------------------
-     |
-     | This project uses stateless JWT authentication for API clients and does
-     | not rely on session-based login. Guards are separated by actor.
-     |
-     */
 
     'guards' => [
-        'customer' => [
+        'web' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+
+        'api' => [
             'driver' => 'jwt',
-            'provider' => 'customers',
+            'provider' => 'users',
         ],
-
-        'employee' => [
-            'driver' => 'jwt',
-            'provider' => 'employees',
-        ],
-
-
-        ],
-
-    /*
-     |--------------------------------------------------------------------------
-     | User Providers
-     |--------------------------------------------------------------------------
-     */
+    ],
 
     'providers' => [
-        // Provider cho customers (khách hàng)
-        'customers' => [
+        'users' => [
             'driver' => 'eloquent',
-            'model' => App\Models\Customers::class,
+            'model' => App\Models\User::class,
         ],
-
-        // Provider cho employees (nhân viên)
-        'employees' => [
-            'driver' => 'eloquent',
-            'model' => App\Models\Employees::class,
-        ],
-
-
-
     ],
-
-    /*
-     |--------------------------------------------------------------------------
-     | Resetting Passwords
-     |--------------------------------------------------------------------------
-     */
 
     'passwords' => [
-        // Password reset cho customers
-        'customers' => [
-            'provider' => 'customers',
+        'users' => [
+            'provider' => 'users',
             'table' => 'password_reset_tokens',
             'expire' => 60,
             'throttle' => 60,
         ],
-
-        // Password reset cho employees
-        'employees' => [
-            'provider' => 'employees',
-            'table' => 'password_reset_tokens',
-            'expire' => 60,
-            'throttle' => 60,
-        ],
-
     ],
-
-    /*
-     |--------------------------------------------------------------------------
-     | Password Confirmation Timeout
-     |--------------------------------------------------------------------------
-     */
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 

@@ -6,26 +6,24 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
+
     public function up(): void
     {
-        Schema::create('rooms', function (Blueprint $table) {
+        Schema::create('screens', function (Blueprint $table) {
             $table->id();
-            $table->string('ten_phong');
-            $table->string('ma',20)->unique();
-            $table->string('loai_phong')->nullable();
-            $table->integer('suc_chua')->nullable();
-            $table->boolean('trang_thai')->default(true);
+            $table->foreignId('theater_id')->constrained('theaters')->onDelete('cascade');
+            $table->string('name');
+            $table->string('code', 20)->unique();
+            $table->string('screen_type')->nullable(); // e.g. 2D, 3D, IMAX
+            $table->integer('capacity')->nullable();
+            $table->tinyInteger('status')->default(1)->comment('0: Inactive, 1: Active');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
-    /**
-     * Reverse the migrations.
-     */
+
     public function down(): void
     {
-        Schema::dropIfExists('rooms');
+        Schema::dropIfExists('screens');
     }
 };

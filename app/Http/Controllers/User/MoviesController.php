@@ -4,103 +4,77 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 
-use App\Models\Movies;
+use App\Models\Movie;
 use Illuminate\Http\Request;
 
 class MoviesController extends Controller
 {
-    // ================= 1️⃣ Lấy danh sách phim đang chiếu =================
-    public function dangChieu()
+    // ================= 1️⃣ Get now showing movies =================
+    public function nowShowing()
     {
-        $phims = Movies::dangChieu()->with(['categories', 'showtimes.format'])->get();
-
-        return response()->json(
-            $phims->map(function ($phim) {
+        $movies = Movie::isShowing()->with(['categories', 'showtimes.screen'])->get();
+ 
+        return $this->ok($movies->map(function ($movie) {
             return [
-                'id' => $phim->id,
-                'ten_phim' => $phim->ten_phim,
-                'slug' => $phim->slug,
-                'dang_chieu' => $phim->dang_chieu,
-                'sap_chieu' => $phim->sap_chieu,
-                'thoi_luong' => $phim->getThoiLuong(),
-                'categories' => $phim->categories,
-                'showtimes' => $phim->showtimes
+                'id'             => $movie->id,
+                'title'          => $movie->title,
+                'slug'           => $movie->slug,
+                'is_showing'     => $movie->is_showing,
+                'is_coming_soon' => $movie->is_coming_soon,
+                'duration'       => $movie->duration,
+                'poster_url'     => $movie->poster_url,
+                'categories'     => $movie->categories,
+                'showtimes'      => $movie->showtimes
             ];
-        })
-        );
+        }));
     }
-
-    // ================= 2️⃣ Lấy danh sách phim sắp chiếu =================
-    public function sapChieu()
+ 
+    // ================= 2️⃣ Get coming soon movies =================
+    public function comingSoon()
     {
-        $phims = Movies::sapChieu()->with(['categories', 'showtimes.format'])->get();
-
-        return response()->json(
-            $phims->map(function ($phim) {
+        $movies = Movie::isComingSoon()->with(['categories', 'showtimes.screen'])->get();
+ 
+        return $this->ok($movies->map(function ($movie) {
             return [
-                'id' => $phim->id,
-                'ten_phim' => $phim->ten_phim,
-                'slug' => $phim->slug,
-                'dang_chieu' => $phim->dang_chieu,
-                'sap_chieu' => $phim->sap_chieu,
-                'thoi_luong' => $phim->getThoiLuong(),
-                'categories' => $phim->categories,
-                'showtimes' => $phim->showtimes
+                'id'             => $movie->id,
+                'title'          => $movie->title,
+                'slug'           => $movie->slug,
+                'is_showing'     => $movie->is_showing,
+                'is_coming_soon' => $movie->is_coming_soon,
+                'duration'       => $movie->duration,
+                'poster_url'     => $movie->poster_url,
+                'categories'     => $movie->categories,
+                'showtimes'      => $movie->showtimes
             ];
-        })
-        );
+        }));
     }
-
-    // ================= 3️⃣ Lấy chi tiết 1 phim =================
+ 
+    // ================= 3️⃣ Get movie details =================
     public function show($slug)
     {
-        $phim = Movies::with(['categories', 'showtimes.format'])->where('slug', $slug)->first();
-
-        if (!$phim) {
-            return response()->json([
-                'message' => 'Không tìm thấy phim'
-            ], 404);
+        $movie = Movie::with(['categories', 'showtimes.screen'])->where('slug', $slug)->first();
+ 
+        if (!$movie) {
+            return $this->notFound('Phim không tồn tại hoặc đã bị xóa.');
         }
-        return response()->json([
-            'id' => $phim->id,
-            'ten_phim' => $phim->ten_phim,
-            'slug' => $phim->slug,
-            'ten_goc' => $phim->ten_goc,
-            'mo_ta' => $phim->mo_ta,
-            'thoi_luong' => $phim->getThoiLuong(),
-            'ngay_khoi_chieu' => $phim->ngay_khoi_chieu,
-            'dang_chieu' => $phim->dang_chieu,
-            'ngay_chieu' => $phim->ngay_chieu,
-            'sap_chieu' => $phim->sap_chieu,
-            'do_tuoi' => $phim->do_tuoi,
-            'dao_dien' => $phim->dao_dien,
-            'dien_vien' => $phim->dien_vien,
-            'poster_url' => $phim->poster_url,
-            'trailer_url' => $phim->trailer_url,
-            'categories' => $phim->categories,
-            'showtimes' => $phim->showtimes
+ 
+        return $this->ok([
+            'id'             => $movie->id,
+            'title'          => $movie->title,
+            'slug'           => $movie->slug,
+            'original_title' => $movie->original_title,
+            'description'    => $movie->description,
+            'duration'       => $movie->duration,
+            'release_date'   => $movie->release_date,
+            'is_showing'     => $movie->is_showing,
+            'is_coming_soon' => $movie->is_coming_soon,
+            'age_rating'     => $movie->age_rating,
+            'director'       => $movie->director,
+            'cast'           => $movie->cast,
+            'poster_url'     => $movie->poster_url,
+            'trailer_url'    => $movie->trailer_url,
+            'categories'     => $movie->categories,
+            'showtimes'      => $movie->showtimes
         ]);
-    }
-
-    // ================= 4️⃣ Lấy tất cả phim =================
-    public function allMovies()
-    {
-        $phims = Movies::with(['categories', 'showtimes.format'])->get();
-
-        return response()->json(
-            $phims->map(function ($phim) {
-            return [
-                'id' => $phim->id,
-                'ten_phim' => $phim->ten_phim,
-                'slug' => $phim->slug,
-                'poster_url'=> $phim->poster_url,
-                'dang_chieu' => $phim->dang_chieu,
-                'sap_chieu' => $phim->sap_chieu,
-                'thoi_luong' => $phim->getThoiLuong(),
-                'categories' => $phim->categories,
-                'showtimes' => $phim->showtimes
-            ];
-        })
-        );
     }
 }
