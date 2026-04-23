@@ -1,284 +1,363 @@
-const AUTH_USER_NAME_KEY = 'user_name';
-
-function getAuthToken() {
-    return localStorage.getItem(AUTH_USER_NAME_KEY) ? 'session_active' : null;
-}
-
-function showAuthAlert(message, type = 'error') {
-    const alertEl = document.getElementById('auth-alert');
-    if (!alertEl) return;
-    
-    alertEl.textContent = message;
-    alertEl.className = `auth-alert ${type}`;
-    alertEl.classList.remove('d-none');
-    
-    setTimeout(() => {
-        alertEl.classList.add('d-none');
-    }, 5000);
-}
- 
-function setAuthState(token, userName = '') {
-    if (userName) {
-        BookingApi.TokenStore.setUserName(userName);
-    } else {
-        BookingApi.TokenStore.clear();
-    }
-    updateNavigationAuthUI(true, userName);
-}
-
-function clearAuthState() {
-    BookingApi.TokenStore.clear();
-    updateNavigationAuthUI(false);
-}
-
-function updateNavigationAuthUI(isLoggedIn, userName = '') {
-    const guestEl = document.getElementById('nav-guest-item');
-    const userEl = document.getElementById('nav-user-item');
-    const nameEl = document.getElementById('nav-user-name');
-
-    if (guestEl && userEl) {
-        guestEl.style.setProperty('display', isLoggedIn ? 'none' : 'block', 'important');
-        userEl.style.setProperty('display', isLoggedIn ? 'block' : 'none', 'important');
-    }
-
-    if (nameEl) {
-        nameEl.textContent = isLoggedIn ? userName || BookingApi.TokenStore.getUserName() || '' : '';
-    }
-}
-
-async function parseJsonResponse(response) {
-    const contentType = response.headers.get('content-type') || '';
-
-    if (!contentType.includes('application/json')) {
-        return null;
-    }
-
-    try {
-        return await response.json();
-    } catch (error) {
-        console.error('Khong the parse JSON response', error);
-        return null;
-    }
-}
-
-async function myFetch(url, options = {}) {
-    return BookingApi.apiFetch(url, options);
-}
-
-//Kiểm tra phiên đăng nhập
-async function syncAuthState() {
-    const token = getAuthToken();
- 
-    if (!token) {
-        updateNavigationAuthUI(false);
-        return;
-    }
- 
-    try {
-        const response = await myFetch('/auth/me');
-        const result = await response.json();
- 
-        if (result.status === 'success') {
-            const userName = result.data?.full_name || '';
-            setAuthState('session_active', userName);
-        } else {
-            clearAuthState();
-        }
-    } catch (error) {
-        console.error('Dong bo trang thai dang nhap that bai', error);
-        clearAuthState();
-    }
-}
-
-
-
-async function handleRegister(event) {
-    event.preventDefault(); // Xử lý sự kiện mà không bị load
-    const $btn = $('#btn-register');
-    
-    // Thu thập dữ liệu theo English Schema
-    const formData = {
-        email:                 $('#register-email').val(),
-        password:              $('#register-password').val(),
-        password_confirmation: $('#register-confirm-password').val(),
-        full_name:             $('#register-name').val(),
-        phone:                 $('#register-phone').val(),
-        gender:                $('#register-gender').val(),
-        birthday:              $('#register-birthday').val(),
-        _token:                $('input[name="_token"]').val(),
-    };
-
-    $btn.prop('disabled', true).text('Dang dang ky ...');
-
-    try {
-        const res = await myFetch('/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(formData),
-        });
-
-        const result = await parseJsonResponse(res);
-
-        if (res.ok && result?.status === 'success') {
-            switchTab('login');
-            $('#login-email').val(formData.email);
-            $('#form-register')[0].reset();
-            showAuthAlert('Đăng ký thành công! Vui lòng đăng nhập.', 'success');
-            return;
-        }
-
-        // dữ liệu sai hoặc thiếu (Validation error)
-        if (res.status === 422 && result?.errors) {
-            const errorList = Object.values(result.errors).flat();
-            showAuthAlert("Lỗi: " + errorList.join(', '));
-            return;
-        }
- 
-        showAuthAlert(result?.message || 'Đăng ký thất bại.');
-    } catch (error) {
-        console.error('Error:', error);
-        showAuthAlert('Có lỗi kết nối máy chủ.');
-    } finally {
-        $btn.prop('disabled', false).text('Tao Tai Khoan');
-    }
-}
-
-async function handleLogin(event) {
-    event.preventDefault();
-    const $btn = $('#btn-login');
-    const formData = {
-        email:       $('#login-email').val(),
-        password:    $('#login-password').val(),
-        device_name: navigator.userAgent,
-        _token:      $('input[name="_token"]').val(),
-    };
-
-    $btn.prop('disabled', true).text('Dang dang nhap ...');
-
-    try {
-        const res = await myFetch('/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(formData),
-        });
-
-        const result = await parseJsonResponse(res);
-
-        if (res.ok && result?.status === 'success') {
-            const userName = result.data?.user?.full_name || '';
-            setAuthState('session_active', userName);
-            $('#authModal').modal('hide');
-            alert('Dang nhap thanh cong');
-            return;
-        }
-
-        alert(result?.message || 'Dang nhap that bai.');
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Co loi xay ra, vui long thu lai sau.');
-    } finally {
-        $btn.prop('disabled', false).text('Dang nhap');
-    }
-}
-
-async function handleLogout(event) {
-    event.preventDefault();
-
-    if (!confirm('Ban co chac chan muon dang xuat?')) {
-        return;
-    }
-
-    const $btn = $('#btn-logout');
-    const token = getAuthToken();
-
-    $btn.prop('disabled', true).text('Dang dang xuat ...');
-
-    try {
-        const res = await myFetch('/auth/logout', {
-            method: 'POST',
-        });
-
-        if (!res.ok && res.status !== 401) {
-            const result = await parseJsonResponse(res);
-            alert(result?.message || 'Dang xuat that bai, vui long thu lai.');
-            return;
-        }
-
-        handleLogoutForce();
-    } catch (error) {
-        console.error('Logout error:', error);
-        alert('Khong the dang xuat luc nay, vui long thu lai.');
-    } finally {
-        $btn.prop('disabled', false).text('Dang xuat');
-    }
-}
-
-function handleGoogleSignIn(element) {
-    const url = $(element).data('url');
-    const strWindowFeatures = 'toolbar=no, menubar=no, width=600, height=700, top=100, left=100';
-
-    window.open(url, 'GoogleLogin', strWindowFeatures);
-
-    window.addEventListener('message', function (event) {
-        if (event.origin !== window.location.origin) {
-            return;
-        }
-
-        const result = event.data;
-
-        if (result?.status === 'success' && result?.token) {
-            setAuthState(result.token, result.user?.full_name || '');
-            $('#authModal').modal('hide');
-            alert('Dang nhap Google thanh cong!');
-        }
-    }, { once: true });
-}
-
-function handleLogoutForce() {
-    clearAuthState();
-    window.location.replace('/');
-}
-
-function switchTab(tab) {
-    if (tab === 'login') {
-        $('#tab-login').addClass('active');
-        $('#tab-register').removeClass('active');
-        $('#pane-login').removeClass('d-none');
-        $('#pane-register').addClass('d-none');
-    } else if (tab === 'register') {
-        $('#tab-register').addClass('active');
-        $('#tab-login').removeClass('active');
-        $('#pane-register').removeClass('d-none');
-        $('#pane-login').addClass('d-none');
-    }
-}
+/**
+ * auth.js — Xác thực người dùng (Đăng nhập, Đăng ký, Đăng xuất, Google)
+ *
+ * Phụ thuộc (load trước file này):
+ *   - booking-api.js → window.BookingApi { apiFetch, TokenStore }
+ *
+ * Chức năng: Đăng nhập → Đăng ký → Đăng xuất → Đồng bộ phiên
+ */
 
 document.addEventListener('DOMContentLoaded', function () {
-    updateNavigationAuthUI(Boolean(getAuthToken()), localStorage.getItem(AUTH_USER_NAME_KEY) || '');
-    syncAuthState();
-    
-    // Tự động mở modal đăng nhập nếu có tham số ?login=1
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('login') === '1') {
-        if (document.getElementById('authModal')) {
-            $('#authModal').modal('show');
-            setTimeout(() => {
-                showAuthAlert('Vui lòng đăng nhập để tiếp tục.', 'error');
-            }, 300);
+    'use strict';
+
+    // ─── Shorthand ───────────────────────────────────────────────────────────
+    const { apiFetch, TokenStore } = window.BookingApi;
+
+    // ─── DOM Refs ────────────────────────────────────────────────────────────
+    const dom = {
+        // Alert
+        authAlert:         document.getElementById('auth-alert'),
+
+        // Login
+        loginEmail:        document.getElementById('login-email'),
+        loginPassword:     document.getElementById('login-password'),
+        btnLogin:          document.getElementById('btn-login'),
+
+        // Register
+        registerEmail:     document.getElementById('register-email'),
+        registerPassword:  document.getElementById('register-password'),
+        registerConfirm:   document.getElementById('register-confirm-password'),
+        registerName:      document.getElementById('register-name'),
+        registerPhone:     document.getElementById('register-phone'),
+        registerGender:    document.getElementById('register-gender'),
+        registerBirthday:  document.getElementById('register-birthday'),
+        btnRegister:       document.getElementById('btn-register'),
+        formRegister:      document.getElementById('form-register'),
+
+        // Logout
+        btnLogout:         document.getElementById('btn-logout'),
+
+        // Navigation
+        navGuestItem:      document.getElementById('nav-guest-item'),
+        navUserItem:       document.getElementById('nav-user-item'),
+        navUserName:       document.getElementById('nav-user-name'),
+
+        // Modal
+        authModal:         document.getElementById('authModal'),
+
+        // Tabs
+        tabLogin:          document.getElementById('tab-login'),
+        tabRegister:       document.getElementById('tab-register'),
+        paneLogin:         document.getElementById('pane-login'),
+        paneRegister:      document.getElementById('pane-register'),
+
+        // CSRF
+        csrfToken:         document.querySelector('meta[name="csrf-token"]')?.content || '',
+    };
+
+    // ─── State ───────────────────────────────────────────────────────────────
+    const AUTH_SESSION_KEY = 'user_name';
+    const SESSION_PING_INTERVAL_MS = 900_000; // 15 phút
+
+    // ─── Utilities ───────────────────────────────────────────────────────────
+
+    function isLoggedIn() {
+        return Boolean(localStorage.getItem(AUTH_SESSION_KEY));
+    }
+
+    function showAlert(message, type = 'error') {
+        const el = dom.authAlert;
+        if (!el) return;
+
+        el.textContent = message;
+        el.className = `auth-alert ${type}`;
+        el.classList.remove('d-none');
+
+        setTimeout(() => el.classList.add('d-none'), 5000);
+    }
+
+    async function parseJson(response) {
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) return null;
+
+        try {
+            return await response.json();
+        } catch (err) {
+            console.error('[Auth] Không thể parse JSON:', err);
+            return null;
         }
     }
-});
 
-setInterval(async () => {
-    if (!getAuthToken()) {
-        return;
+    function setButtonLoading(btn, isLoading, loadingText, defaultText) {
+        if (!btn) return;
+        btn.disabled = isLoading;
+        btn.textContent = isLoading ? loadingText : defaultText;
     }
 
-    try {
-        await myFetch('/auth/me', {
-            method: 'GET',
+    // ─── Auth State ──────────────────────────────────────────────────────────
+
+    function updateNavUI(loggedIn, userName = '') {
+        const { navGuestItem, navUserItem, navUserName } = dom;
+
+        if (navGuestItem && navUserItem) {
+            navGuestItem.style.setProperty('display', loggedIn ? 'none'  : 'block', 'important');
+            navUserItem.style.setProperty( 'display', loggedIn ? 'block' : 'none',  'important');
+        }
+
+        if (navUserName) {
+            navUserName.textContent = loggedIn
+                ? (userName || TokenStore.getUserName() || '')
+                : '';
+        }
+    }
+
+    function setAuthSession(userName = '') {
+        if (userName) TokenStore.setUserName(userName);
+        updateNavUI(true, userName);
+    }
+
+    function clearAuthSession() {
+        TokenStore.clear();
+        updateNavUI(false);
+    }
+
+    // ─── Tab Switcher ────────────────────────────────────────────────────────
+
+    function switchTab(tab) {
+        const isLogin = tab === 'login';
+        const { tabLogin, tabRegister, paneLogin, paneRegister } = dom;
+
+        tabLogin?.classList.toggle('active', isLogin);
+        tabRegister?.classList.toggle('active', !isLogin);
+        paneLogin?.classList.toggle('d-none', !isLogin);
+        paneRegister?.classList.toggle('d-none', isLogin);
+    }
+
+    // ─── Handlers ────────────────────────────────────────────────────────────
+
+    async function handleRegister(event) {
+        event.preventDefault();
+
+        const formData = {
+            email:                 dom.registerEmail?.value   || '',
+            password:              dom.registerPassword?.value || '',
+            password_confirmation: dom.registerConfirm?.value  || '',
+            full_name:             dom.registerName?.value     || '',
+            phone:                 dom.registerPhone?.value    || '',
+            gender:                dom.registerGender?.value   || '',
+            birthday:              dom.registerBirthday?.value || '',
+        };
+
+        setButtonLoading(dom.btnRegister, true, 'Đang đăng ký...', 'Tạo tài khoản');
+
+        try {
+            const res = await apiFetch('/auth/register', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(formData),
+            });
+
+            const result = await parseJson(res);
+
+            if (res.ok && result?.status === 'success') {
+                if (dom.loginEmail) dom.loginEmail.value = formData.email;
+                dom.formRegister?.reset();
+                switchTab('login');
+                showAlert('Đăng ký thành công! Vui lòng đăng nhập.', 'success');
+                return;
+            }
+
+            if (res.status === 422 && result?.errors) {
+                const errorMessages = Object.values(result.errors).flat();
+                showAlert('Lỗi: ' + errorMessages.join(', '));
+                return;
+            }
+
+            showAlert(result?.message || 'Đăng ký thất bại.');
+        } catch (err) {
+            console.error('[Auth] Lỗi đăng ký:', err);
+            showAlert('Có lỗi kết nối máy chủ.');
+        } finally {
+            setButtonLoading(dom.btnRegister, false, '', 'Tạo tài khoản');
+        }
+    }
+
+    async function handleLogin(event) {
+        event.preventDefault();
+
+        const formData = {
+            email:       dom.loginEmail?.value    || '',
+            password:    dom.loginPassword?.value || '',
+            device_name: navigator.userAgent,
+        };
+
+        setButtonLoading(dom.btnLogin, true, 'Đang đăng nhập...', 'Đăng nhập');
+
+        try {
+            const res = await apiFetch('/auth/login', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(formData),
+            });
+
+            const result = await parseJson(res);
+
+            if (res.ok && result?.status === 'success') {
+                const userName = result.data?.user?.full_name || '';
+                setAuthSession(userName);
+
+                if (dom.authModal) {
+                    const modal = bootstrap.Modal.getInstance(dom.authModal);
+                    modal?.hide();
+                }
+
+                showAlert('Đăng nhập thành công!', 'success');
+                return;
+            }
+
+            showAlert(result?.message || 'Đăng nhập thất bại.');
+        } catch (err) {
+            console.error('[Auth] Lỗi đăng nhập:', err);
+            showAlert('Có lỗi xảy ra, vui lòng thử lại sau.');
+        } finally {
+            setButtonLoading(dom.btnLogin, false, '', 'Đăng nhập');
+        }
+    }
+
+    async function handleLogout(event) {
+        event.preventDefault();
+
+        if (!confirm('Bạn có chắc chắn muốn đăng xuất?')) return;
+
+        setButtonLoading(dom.btnLogout, true, 'Đang đăng xuất...', 'Đăng xuất');
+
+        try {
+            const res = await apiFetch('/auth/logout', { method: 'POST' });
+
+            // 401 vẫn tính là logout thành công (session đã hết)
+            if (!res.ok && res.status !== 401) {
+                const result = await parseJson(res);
+                showAlert(result?.message || 'Đăng xuất thất bại, vui lòng thử lại.');
+                return;
+            }
+
+            clearAuthSession();
+            window.location.replace('/');
+        } catch (err) {
+            console.error('[Auth] Lỗi đăng xuất:', err);
+            showAlert('Không thể đăng xuất lúc này, vui lòng thử lại.');
+        } finally {
+            setButtonLoading(dom.btnLogout, false, '', 'Đăng xuất');
+        }
+    }
+
+    function handleGoogleSignIn(element) {
+        const url = element?.dataset?.url;
+        if (!url) return;
+
+        const windowFeatures = 'toolbar=no,menubar=no,width=600,height=700,top=100,left=100';
+        window.open(url, 'GoogleLogin', windowFeatures);
+
+        window.addEventListener('message', function onMessage(event) {
+            if (event.origin !== window.location.origin) return;
+
+            const result = event.data;
+            if (result?.status === 'success' && result?.token) {
+                setAuthSession(result.user?.full_name || '');
+
+                if (dom.authModal) {
+                    const modal = bootstrap.Modal.getInstance(dom.authModal);
+                    modal?.hide();
+                }
+
+                showAlert('Đăng nhập Google thành công!', 'success');
+            }
+
+            window.removeEventListener('message', onMessage);
         });
-    } catch (error) {
-        console.error('Kiem tra phien dang nhap that bai', error);
     }
-}, 900000);
+
+    // ─── Session Sync ────────────────────────────────────────────────────────
+
+    async function syncAuthState() {
+        if (!isLoggedIn()) {
+            updateNavUI(false);
+            return;
+        }
+
+        try {
+            const res    = await apiFetch('/auth/me');
+            const result = await parseJson(res);
+
+            if (result?.status === 'success') {
+                setAuthSession(result.data?.full_name || '');
+            } else {
+                clearAuthSession();
+            }
+        } catch (err) {
+            console.error('[Auth] Đồng bộ phiên đăng nhập thất bại:', err);
+            clearAuthSession();
+        }
+    }
+
+    async function pingSession() {
+        if (!isLoggedIn()) return;
+
+        try {
+            await apiFetch('/auth/me');
+        } catch (err) {
+            console.error('[Auth] Kiểm tra phiên thất bại:', err);
+        }
+    }
+
+    // ─── Events ──────────────────────────────────────────────────────────────
+
+    function setupEvents() {
+        // Form đăng nhập
+        dom.btnLogin?.closest('form')?.addEventListener('submit', handleLogin);
+
+        // Form đăng ký
+        dom.formRegister?.addEventListener('submit', handleRegister);
+
+        // Nút đăng xuất
+        dom.btnLogout?.addEventListener('click', handleLogout);
+
+        // Tab switcher
+        dom.tabLogin?.addEventListener('click', () => switchTab('login'));
+        dom.tabRegister?.addEventListener('click', () => switchTab('register'));
+
+        // Google Sign-In (delegation vì nút có thể render sau)
+        document.addEventListener('click', (e) => {
+            const googleBtn = e.target.closest('[data-action="google-signin"]');
+            if (googleBtn) handleGoogleSignIn(googleBtn);
+        });
+    }
+
+    // ─── Init ────────────────────────────────────────────────────────────────
+
+    function init() {
+        // Cập nhật UI ngay dựa trên dữ liệu local (không chờ API)
+        updateNavUI(isLoggedIn(), localStorage.getItem(AUTH_SESSION_KEY) || '');
+
+        // Đồng bộ với server
+        syncAuthState();
+
+        // Tự động mở modal đăng nhập nếu có ?login=1
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('login') === '1' && dom.authModal) {
+            const modal = new bootstrap.Modal(dom.authModal);
+            modal.show();
+            setTimeout(() => showAlert('Vui lòng đăng nhập để tiếp tục.'), 300);
+        }
+
+        setupEvents();
+
+        // Ping server định kỳ để giữ phiên
+        setInterval(pingSession, SESSION_PING_INTERVAL_MS);
+    }
+
+    // Expose handleGoogleSignIn ra ngoài vì được gọi từ HTML (onclick attribute)
+    window.handleGoogleSignIn = handleGoogleSignIn;
+
+    init();
+});
